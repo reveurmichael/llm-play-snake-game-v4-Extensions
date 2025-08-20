@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import os
 import importlib
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Dict, Any
 from collections import defaultdict
 
 from colorama import Fore
@@ -40,6 +40,7 @@ from colorama import Fore
 from core.game_logic import BaseGameLogic, GameLogic
 from core.game_loop import run_game_loop
 from config.ui_constants import TIME_DELAY, TIME_TICK
+from config.game_constants import MAX_STEPS_ALLOWED
 
 # LLM components - only for Task-0
 from llm.client import LLMClient
@@ -103,6 +104,12 @@ class BaseGameManager:
         self.consecutive_no_path_found: int = 0
         self.no_path_found_steps: int = 0
         self.last_no_path_found: bool = False
+
+        # -------------------
+        # Game limits management (used by ALL tasks)
+        # -------------------
+        from core.game_limits_manager import create_limits_manager
+        self.limits_manager = create_limits_manager(args)
 
         # -------------------
         # Game state management (used by ALL tasks)
@@ -327,6 +334,230 @@ class BaseGameManager:
             stats_manager = GameStatsManager()
             stats_manager.save_session_stats(self.log_dir)
 
+    # -------------------
+    # GENERIC GAME DATA MANAGEMENT - Used by all extensions
+    # -------------------
+
+    def generate_game_data(self, game_duration: float) -> Dict[str, Any]:
+        """Generate game data for logging and dataset generation.
+        
+        This method provides a base implementation that extensions can override
+        to add task-specific data while maintaining consistency.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+            
+        Returns:
+            Dictionary containing game data
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            raise RuntimeError("Game not initialized or missing game_state")
+            
+        # Get base game summary from game state
+        game_data = self.game.game_state.generate_game_summary()
+        
+        # Add common metadata
+        game_data["game_number"] = self.game_count
+        game_data["duration_seconds"] = round(game_duration, 2)
+        
+        # Hook for extensions to add task-specific data
+        self._add_task_specific_game_data(game_data, game_duration)
+        
+        return game_data
+    
+    def _add_task_specific_game_data(self, game_data: Dict[str, Any], game_duration: float) -> None:
+        """Hook for extensions to add task-specific game data.
+        
+        Override in subclasses to add extension-specific fields to game data.
+        
+        Args:
+            game_data: Game data dictionary to modify
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def save_game_data(self, game_data: Dict[str, Any]) -> None:
+        """Save individual game data to JSON file.
+        
+        Args:
+            game_data: Dictionary containing game data to save
+        """
+        if not self.log_dir:
+            return
+            
+        import json
+        from extensions.common.utils.game_state_utils import to_serializable
+        
+        # Use game_count for consistent numbering (games start at 1)
+        game_file = os.path.join(self.log_dir, f"game_{self.game_count}.json")
+        with open(game_file, "w", encoding="utf-8") as f:
+            json.dump(to_serializable(game_data), f, indent=2)
+
+    def display_game_results(self, game_duration: float) -> None:
+        """Display game results to console.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return
+            
+        from utils.print_utils import print_info
+        
+        print_info(
+            f"📊 Score: {self.game.game_state.score}, "
+            f"Steps: {self.game.game_state.steps}, "
+            f"Duration: {game_duration:.2f}s"
+        )
+        
+        # Hook for extensions to add task-specific display
+        self._display_task_specific_results(game_duration)
+    
+    def _display_task_specific_results(self, game_duration: float) -> None:
+        """Hook for extensions to display task-specific results.
+        
+        Override in subclasses to add extension-specific result display.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def determine_game_end_reason(self) -> str:
+        """Determine why the game ended using uniform END_REASON_MAP.
+        
+        Returns:
+            Canonical end reason key from END_REASON_MAP
+        """
+        from config.game_constants import END_REASON_MAP
+        
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return "UNKNOWN"
+            
+        game_state = self.game.game_state
+        
+        # Check if game state has explicit end reason
+        if hasattr(game_state, "game_end_reason") and game_state.game_end_reason:
+            raw_reason = game_state.game_end_reason
+        else:
+            # Fallback logic based on game state
+            if game_state.steps >= getattr(game_state, 'max_steps', MAX_STEPS_ALLOWED):
+                raw_reason = "MAX_STEPS_REACHED"
+            elif hasattr(game_state, 'max_score') and game_state.score >= game_state.max_score:
+                raw_reason = "MAX_SCORE_REACHED"
+            else:
+                raw_reason = "UNKNOWN"
+        
+        # Validate against END_REASON_MAP
+        if raw_reason not in END_REASON_MAP:
+            from utils.print_utils import print_warning
+            print_warning(f"Unknown end reason '{raw_reason}', defaulting to 'UNKNOWN'")
+            return "UNKNOWN"
+            
+        return raw_reason
+
+    def finalize_game(self, game_duration: float) -> None:
+        """Finalize game processing including data generation and saving.
+        
+        This method provides a complete workflow for game finalization that
+        extensions can use or override as needed.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Increment game count
+        self.game_count += 1
+        
+        # Set game number in game state for consistency
+        if self.game and hasattr(self.game, 'game_state'):
+            self.game.game_state.game_number = self.game_count
+        
+        # Generate and save game data
+        game_data = self.generate_game_data(game_duration)
+        self.save_game_data(game_data)
+        
+        # Update session statistics
+        self.update_session_stats(game_duration)
+        
+        # Hook for extensions to add custom finalization
+        self._finalize_task_specific(game_data, game_duration)
+    
+    def _finalize_task_specific(self, game_data: Dict[str, Any], game_duration: float) -> None:
+        """Hook for extensions to add task-specific finalization.
+        
+        Override in subclasses to add extension-specific finalization logic.
+        
+        Args:
+            game_data: Generated game data
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def update_session_stats(self, game_duration: float) -> None:
+        """Update session-level statistics.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return
+            
+        # Update core statistics
+        self.total_score += self.game.game_state.score
+        self.total_steps += self.game.game_state.steps
+        self.total_rounds += self.round_count
+        
+        # Update per-game tracking
+        self.game_scores.append(self.game.game_state.score)
+        self.round_counts.append(self.round_count)
+        
+        # Hook for extensions to add custom stats
+        self._update_task_specific_stats(game_duration)
+    
+    def _update_task_specific_stats(self, game_duration: float) -> None:
+        """Hook for extensions to update task-specific statistics.
+        
+        Override in subclasses to add extension-specific statistics.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def run_single_game(self) -> float:
+        """Run a single game and return its duration.
+        
+        This method provides a template for running individual games that
+        extensions can override while maintaining consistent structure.
+        
+        Returns:
+            Duration of the game in seconds
+        """
+        import time
+        
+        start_time = time.time()
+        
+        # Initialize game
+        if self.game:
+            self.game.reset()
+        
+        # Template method - extensions implement game-specific logic
+        self._execute_game_loop()
+        
+        return time.time() - start_time
+    
+    def _execute_game_loop(self) -> None:
+        """Execute the main game loop.
+        
+        Extensions must override this method to implement their specific
+        game execution logic (LLM planning, heuristic pathfinding, RL training, etc.).
+        """
+        raise NotImplementedError("Subclasses must implement _execute_game_loop()")
+
 
 # -------------------
 # TASK-0 SPECIFIC CLASS - LLM Snake Game
@@ -353,12 +584,6 @@ class GameManager(BaseGameManager):
     ) -> None:
         """Initialize LLM-specific session."""
         super().__init__(args)
-
-        # -------------------
-        # Elegant Consecutive Limits Management System
-        # -------------------
-        from core.game_limits_manager import create_limits_manager
-        self.limits_manager = create_limits_manager(args)
 
         # -------------------
         # LLM-specific counters and state
