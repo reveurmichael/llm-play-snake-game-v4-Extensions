@@ -53,7 +53,7 @@ except ImportError:
             class cuda:
                 @staticmethod
                 def is_available(): return False
-            return cuda
+            return cuda()  # Return instance, not class
         @staticmethod
         def load(path, map_location=None): return {}
         @staticmethod

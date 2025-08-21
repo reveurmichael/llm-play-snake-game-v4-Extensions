@@ -716,74 +716,105 @@ class SupervisedLearningApp:
             }
     
     def execute_training(self, dataset_path: str, model_type: str, model_name: str, save_path: str, **params):
-        """Execute model training with progress tracking."""
-        st.markdown("#### 🔄 Training Progress")
+        """Execute model training with advanced pipeline."""
+        st.markdown("#### 🔄 Advanced Training Progress")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
-            # Step 1: Load and prepare data
-            status_text.text("📁 Loading dataset...")
+            # Import the advanced training system
+            from training import SupervisedTrainingPipeline
+            
+            status_text.text("🚀 Initializing advanced training pipeline...")
             progress_bar.progress(10)
             
-            df = pd.read_csv(dataset_path)
-            st.info(f"✅ Loaded dataset: {len(df)} samples, {len(df.columns)} features")
+            pipeline = SupervisedTrainingPipeline()
             
-            # Step 2: Prepare features and labels
-            status_text.text("🔧 Preparing features and labels...")
+            # Load and validate data
+            status_text.text("📁 Loading and validating dataset...")
             progress_bar.progress(20)
             
-            X, y = self.prepare_training_data(df)
-            st.info(f"✅ Prepared data: {X.shape[0]} samples, {X.shape[1]} features")
+            df = pipeline.load_data(dataset_path)
+            if df.empty:
+                st.error("❌ Failed to load dataset")
+                return
             
-            # Step 3: Split data
-            status_text.text("✂️ Splitting data...")
-            progress_bar.progress(30)
+            st.info(f"✅ Loaded dataset: {len(df)} samples, {len(df.columns)} columns")
             
-            if SKLEARN_AVAILABLE:
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X, y, test_size=params.get("test_split", 0.2), 
-                    random_state=params.get("random_seed", 42)
-                )
-            else:
-                # Simple split without sklearn
-                split_idx = int(len(X) * (1 - params.get("test_split", 0.2)))
-                X_train, X_test = X[:split_idx], X[split_idx:]
-                y_train, y_test = y[:split_idx], y[split_idx:]
-            
-            # Step 4: Train model
-            status_text.text(f"🎯 Training {model_type} model...")
+            # Feature engineering
+            status_text.text("🔧 Advanced feature engineering...")
             progress_bar.progress(40)
             
-            model, training_history = self.train_model(
-                model_type, X_train, y_train, X_test, y_test, params
-            )
+            X, y = pipeline.feature_engineer.engineer_features(df)
+            st.info(f"✅ Engineered {X.shape[1]} features from {len(df)} samples")
+            
+            # Show feature names
+            feature_names = pipeline.feature_engineer.get_feature_names()
+            with st.expander("🔍 Engineered Features", expanded=False):
+                st.write(", ".join(feature_names))
+            
+            # Training
+            status_text.text(f"🎯 Training {model_type} with advanced techniques...")
+            progress_bar.progress(60)
+            
+            # Prepare training parameters
+            training_params = {
+                'epochs': params.get('epochs', 100),
+                'batch_size': params.get('batch_size', 64),
+                'learning_rate': params.get('learning_rate', 0.001),
+                'hidden_layers': params.get('hidden_layers', [128, 64, 32]),
+                'num_leaves': params.get('num_leaves', 31),
+                'n_estimators': params.get('n_estimators', 100)
+            }
+            
+            # Train specific model
+            if model_type == "MLP":
+                results = pipeline.mlp_trainer.train(
+                    X[:int(0.8*len(X))], y[:int(0.8*len(X))],  # Train split
+                    X[int(0.8*len(X)):int(0.9*len(X))], y[int(0.8*len(X)):int(0.9*len(X))],  # Val split
+                    **training_params
+                )
+            else:  # LightGBM
+                results = pipeline.lgb_trainer.train(
+                    X[:int(0.8*len(X))], y[:int(0.8*len(X))],
+                    X[int(0.8*len(X)):int(0.9*len(X))], y[int(0.8*len(X)):int(0.9*len(X))],
+                    **training_params
+                )
             
             progress_bar.progress(80)
             
-            # Step 5: Save model
-            status_text.text("💾 Saving model...")
+            # Save model
+            status_text.text("💾 Saving trained model...")
             
-            model_path = Path(save_path) / f"{model_name}.{'pth' if model_type == 'MLP' else 'pkl'}"
-            model_path.parent.mkdir(parents=True, exist_ok=True)
+            model_path = Path(save_path)
+            model_path.mkdir(parents=True, exist_ok=True)
             
-            self.save_trained_model(model, model_path, model_type, training_history)
+            if model_type == "MLP" and pipeline.mlp_trainer.model:
+                save_success = pipeline.mlp_trainer.save_model(str(model_path / f"{model_name}.pth"))
+            elif model_type == "LightGBM" and pipeline.lgb_trainer.model:
+                save_success = pipeline.lgb_trainer.save_model(str(model_path / f"{model_name}.pkl"))
+            else:
+                save_success = False
             
             progress_bar.progress(100)
-            status_text.text("✅ Training completed!")
+            status_text.text("✅ Advanced training completed!")
             
-            # Show results
-            st.success(f"🎉 Model trained successfully!")
-            st.info(f"📁 Model saved to: {model_path}")
-            
-            # Show training metrics
-            if training_history:
-                self.display_training_results(training_history)
+            # Display comprehensive results
+            if save_success:
+                st.success(f"🎉 {model_type} model trained successfully with advanced techniques!")
+                st.info(f"📁 Model saved to: {model_path / model_name}")
+                
+                # Display training metrics
+                self.display_advanced_training_results(results, model_type)
+            else:
+                st.warning("⚠️ Training completed but model save failed")
         
         except Exception as e:
-            st.error(f"❌ Training failed: {e}")
+            st.error(f"❌ Advanced training failed: {e}")
             status_text.text("❌ Training failed")
+            import traceback
+            st.code(traceback.format_exc())
     
     def execute_quick_training(self, dataset_path: str, model_type: str):
         """Execute quick training with default parameters."""
@@ -888,6 +919,123 @@ class SupervisedLearningApp:
         # Show final metrics
         if training_history:
             st.json(training_history)
+    
+    def display_advanced_training_results(self, results: dict, model_type: str):
+        """Display comprehensive training results from advanced pipeline."""
+        st.markdown("#### 🏆 Advanced Training Results")
+        
+        if not results or "error" in results:
+            st.error(f"❌ Training failed: {results.get('error', 'Unknown error')}")
+            return
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            training_time = results.get('training_time', 0)
+            st.metric("Training Time", f"{training_time:.2f}s")
+        
+        with col2:
+            if model_type == "MLP":
+                best_acc = results.get('best_accuracy', 0)
+                st.metric("Best Accuracy", f"{best_acc:.4f}")
+            else:
+                num_trees = results.get('num_trees', 0)
+                st.metric("Number of Trees", num_trees)
+        
+        with col3:
+            if model_type == "MLP":
+                final_acc = results.get('final_train_accuracy', 0)
+                st.metric("Final Train Accuracy", f"{final_acc:.4f}")
+            else:
+                st.metric("Model Type", "LightGBM")
+        
+        with col4:
+            if model_type == "MLP":
+                epochs = results.get('epochs', 0)
+                st.metric("Epochs Completed", epochs)
+            else:
+                st.metric("Boosting Type", "GBDT")
+        
+        # Training curves for MLP
+        if model_type == "MLP" and "train_accuracies" in results:
+            st.markdown("#### 📈 Training Progress")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if "train_losses" in results:
+                    loss_df = pd.DataFrame({
+                        "Epoch": range(len(results["train_losses"])),
+                        "Training Loss": results["train_losses"]
+                    })
+                    st.line_chart(loss_df.set_index("Epoch"))
+                    st.caption("Training Loss Over Time")
+            
+            with col2:
+                acc_data = {"Training": results["train_accuracies"]}
+                if "val_accuracies" in results and results["val_accuracies"]:
+                    acc_data["Validation"] = results["val_accuracies"]
+                
+                acc_df = pd.DataFrame(acc_data)
+                acc_df.index.name = "Epoch"
+                st.line_chart(acc_df)
+                st.caption("Accuracy Over Time")
+        
+        # Feature importance for LightGBM
+        if model_type == "LightGBM" and "feature_importance" in results:
+            st.markdown("#### 🎯 Feature Importance")
+            
+            importance = results["feature_importance"]
+            if importance:
+                # Sort by importance
+                sorted_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)
+                
+                # Create DataFrame for visualization
+                importance_df = pd.DataFrame(sorted_features[:10], columns=["Feature", "Importance"])
+                
+                st.bar_chart(importance_df.set_index("Feature"))
+                st.caption("Top 10 Most Important Features")
+                
+                # Show all features in expandable section
+                with st.expander("🔍 All Feature Importances", expanded=False):
+                    st.dataframe(pd.DataFrame(sorted_features, columns=["Feature", "Importance"]))
+        
+        # Model configuration
+        with st.expander("⚙️ Model Configuration", expanded=False):
+            st.json(results)
+        
+        # Performance insights
+        st.markdown("#### 💡 Performance Insights")
+        
+        if model_type == "MLP":
+            if results.get('best_accuracy', 0) > 0.9:
+                st.success("🏆 Excellent model performance! Accuracy > 90%")
+            elif results.get('best_accuracy', 0) > 0.8:
+                st.info("✅ Good model performance! Accuracy > 80%")
+            else:
+                st.warning("⚠️ Model performance could be improved. Consider hyperparameter tuning.")
+            
+            # Training efficiency
+            training_time = results.get('training_time', 0)
+            epochs = results.get('epochs', 1)
+            time_per_epoch = training_time / epochs if epochs > 0 else 0
+            
+            if time_per_epoch < 1:
+                st.success(f"⚡ Fast training: {time_per_epoch:.3f}s per epoch")
+            elif time_per_epoch < 5:
+                st.info(f"⏱️ Moderate training speed: {time_per_epoch:.2f}s per epoch")
+            else:
+                st.warning(f"🐌 Slow training: {time_per_epoch:.2f}s per epoch")
+        
+        else:  # LightGBM
+            num_trees = results.get('num_trees', 0)
+            if num_trees > 500:
+                st.info("🌲 Complex model with many trees - good for complex patterns")
+            elif num_trees > 100:
+                st.success("🌿 Balanced model complexity")
+            else:
+                st.warning("🌱 Simple model - might underfit complex data")
 
 
 def main():
