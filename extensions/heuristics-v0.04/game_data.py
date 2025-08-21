@@ -87,6 +87,7 @@ class HeuristicGameData(BaseGameData):
         self.round_manager = HeuristicRoundManager()
 
         # Ensure we use heuristic-specific time stats without LLM pollution
+        # TODO: double check if this is correct.
         self.stats.time_stats = HeuristicTimeStats(start_time=time.time())
 
         # Reset heuristic-specific counters
@@ -222,6 +223,7 @@ class HeuristicGameData(BaseGameData):
             summary["dataset_game_states"] = dataset_game_states
 
     # TODO: NO LECACY. Please refer to the md file: ./docs/extensions-guideline/forward-looking-architecture.md .
+    # TODO: no need for Task-0 compatible *game_N.json* dictionary. For replaying json files, we have, for extensions, the extension "streamlit-app-for-replay-and-read-large-files" for this.
     def generate_game_summary_legacy(
         self,
         primary_provider: str = "bfs",
@@ -346,6 +348,7 @@ class HeuristicGameData(BaseGameData):
     # Serialisation helper – mirrors core.GameData.save_game_summary
     # ----------------
 
+    # TODO: From my understanding, the save_game_summary should be very much inherited from BaseGameData.save_game_summary, if we have a good enough BaseGameData.save_game_summary. Or maybe I am wrong.
     def save_game_summary(self, filepath: str, **kwargs):  # type: ignore[override]
         """Write *game_N.json* using the local `generate_game_summary()`.
         Always writes with UTF-8 encoding for full Unicode compatibility.

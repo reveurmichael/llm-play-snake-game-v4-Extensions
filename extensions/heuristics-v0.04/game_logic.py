@@ -76,20 +76,21 @@ class HeuristicGameLogic(BaseGameLogic):
             self.game_state.snake_positions = self.snake_positions.tolist()
             self.game_state.apple_position = self.apple_position.tolist()
             self.game_state.reset()
-            
+
             # Validate initial state
             initial_state = self.get_state_snapshot()
             if not initial_state['snake_positions'] or not initial_state['apple_position']:
                 raise RuntimeError("[SSOT] Initial game state is missing or invalid after initialization.")
 
+    # TODO: i don't understand why we need this. The base should already provide this very well. make sure the base class is good on this. This is generic for all extensions.
     def set_agent(self, agent: BFSAgent) -> None:
         """Set the heuristic agent for pathfinding."""
         self.agent = agent
-        
+
         # Validate agent has algorithm_name - required for heuristics
         if not hasattr(agent, "algorithm_name") or not agent.algorithm_name:
             raise ValueError(f"Agent {agent} must have a valid algorithm_name attribute")
-        
+
         self.algorithm_name = agent.algorithm_name
 
         # Update game data with algorithm info and grid_size
@@ -220,7 +221,7 @@ class HeuristicGameLogic(BaseGameLogic):
         # Validate move and generate planned moves
         if not move:
             raise ValueError("Agent must return a valid move, not None")
-        
+
         planned_moves = [move]
 
         # Record planned moves in round manager
@@ -240,6 +241,7 @@ class HeuristicGameLogic(BaseGameLogic):
         else:
             return "NO_PATH_FOUND"
 
+    # TODO: i don't understand why we need this. The base should already provide this very well. make sure the base class is good on this. This is generic for all extensions.
     def get_algorithm_info(self) -> dict:
         """
         Get information about the current heuristic algorithm.
@@ -310,11 +312,13 @@ class HeuristicGameLogic(BaseGameLogic):
             "snake_length": len(recorded_state.get("snake_positions", []))  # PRE-MOVE: recorded snake length
         }
 
+    # TODO: i don't understand why we need this. The base should already provide this very well. make sure the base class is good on this. This is generic for all extensions.
     def _generate_apple(self) -> NDArray[np.int_]:
         """Generate a new apple position not occupied by the snake."""
         apple = super()._generate_apple()
         return apple 
 
+    # TODO: i don't understand why we need this. The base should already provide this very well. make sure the base class is good on this. This is generic for all extensions.
     def make_move(self, direction_key: str) -> Tuple[bool, bool]:
         """
         Make a move in the given direction and update the game state.
