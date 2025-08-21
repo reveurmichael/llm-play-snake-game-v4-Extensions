@@ -1,3 +1,6 @@
+# TODO: THIS FILE IS WAY TOO LONG. PLEASE SPLIT IT INTO SMALLER FILES. MAYBE MANY FUNCTIONALITIES INTO A FOLDER'S PYTHON FILES.
+
+
 """
 Streamlit App for Replay and Large File Reading
 ===============================================

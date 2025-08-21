@@ -12,25 +12,6 @@ All v0.03+ extensions must provide a `Streamlit app.py` whose **sole purpose** i
 - **Subprocess Usage**: Demonstrating proper subprocess execution patterns
 - **SUPREME_RULES Compliance**: Following the script launcher mandate from `final-decision.md`
 
-## 🏗️ **Factory Pattern: Canonical Method is create()**
-
-All app factories must use the canonical method name `create()` for instantiation, not `create_app()` or any other variant. This ensures consistency and aligns with the KISS principle and SUPREME_RULES from `final-decision.md`.
-
-### **Reference Implementation**
-
-```python
-from utils.factory_utils import SimpleFactory
-
-class StreamlitApp:
-    def __init__(self, name):
-        self.name = name
-
-factory = SimpleFactory()
-factory.register("streamlit", StreamlitApp)
-app = factory.create("streamlit", name="TestApp")  # CANONICAL create() method per SUPREME_RULES
-print_info(f"App name: {app.name}")  # SUPREME_RULES compliant logging
-```
-
 ## ✅ **Key Requirements**
 
 ### **Script Launcher Focus**
