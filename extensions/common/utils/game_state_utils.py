@@ -1,12 +1,15 @@
 """
-Game State Utilities - Common game state extraction functions
-----------------
+Game State Utilities
+===================
 
-This module contains utility functions for extracting and manipulating
-game state data that are used across multiple extensions.
+Elegant utility functions for game state extraction and manipulation
+following SSOT principles and supporting all extensions.
 
-These functions were moved from agent_bfs.py to follow SSOT principles
-and make them available to all extensions.
+Key Features:
+- SSOT compliance for head/body position extraction
+- JSON serialization with numpy array handling
+- Grid-agnostic design for any board size
+- Clean, reusable function signatures
 """
 from __future__ import annotations
 
