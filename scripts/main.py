@@ -1,10 +1,16 @@
-"""Wrapper script delegating to the original project-root `main.py`.
+"""
+Task-0 Main Entry Point
+======================
 
-It guarantees the working directory is the repository root so that relative
-paths (log folders, Flask template dirs, …) behave exactly like when the
-script is launched from the root.
+LLM-powered Snake Game AI with comprehensive multi-provider support,
+advanced reasoning capabilities, and elegant user interface options.
 
-This whole module is Task0 specific.
+Key Features:
+- Multi-provider LLM support (OpenAI, Anthropic, DeepSeek, Hunyuan, Ollama)
+- Mixture-of-Experts dual LLM architecture
+- Multiple interface options (PyGame, Web, CLI)
+- Comprehensive session management and replay
+- Advanced error handling and recovery
 """
 
 from __future__ import annotations

@@ -1,46 +1,98 @@
 ![](./img/a.jpg)
 
-# LLM-Powered Snake Game (MoE Variant)
+# 🐍 Snake Game AI: Comprehensive Multi-Algorithm Framework
 
-This project implements a classic Snake game controlled by two Large Language Models using a Mixture-of-Experts inspired approach.
+An advanced, educational Snake Game AI framework featuring LLM-powered gameplay, heuristic algorithms, supervised learning, and comprehensive extensibility. Designed for research, education, and AI development.
 
-## How to Play the Game
+## 🎯 **Project Overview**
 
-Run the game with different LLM providers and models:
+This project provides a complete ecosystem for Snake Game AI development with:
+- **Task-0**: LLM-powered gameplay with multi-provider support
+- **Extensions**: Heuristic algorithms, supervised learning, and more
+- **Research Tools**: Comprehensive data generation and analysis
+- **Educational Value**: Perfect for learning AI and software engineering
 
-```
-python main.py --provider ollama --model deepseek-r1:7b --parser-provider ollama --parser-model gemma2:9b
+## 🚀 **Quick Start**
 
-python main.py --provider ollama --model deepseek-r1:7b --parser-provider ollama --parser-model gemma3:12b-it-qat
+### **Task-0: LLM-Powered Snake Game**
 
-python main.py --provider ollama --model deepseek-r1:14b --parser-provider ollama --parser-model gemma2:9b
+Run the intelligent Snake game with various LLM providers:
 
-python main.py --provider ollama --model deepseek-r1:14b --parser-provider ollama --parser-model gemma3:12b-it-qat
+```bash
+# Single LLM (recommended for beginners)
+python scripts/main.py --provider ollama --model deepseek-r1:7b
 
-python main.py --provider ollama --model deepseek-r1:32b --parser-provider ollama --parser-model gemma2:9b
+# Dual LLM (Mixture-of-Experts approach)
+python scripts/main.py --provider ollama --model deepseek-r1:7b --parser-provider ollama --parser-model gemma2:9b
 
-python main.py --provider ollama --model deepseek-r1:32b --parser-provider ollama --parser-model gemma3:12b-it-qat
-```
-
-You can also run the game with just a primary LLM (without a parser):
-
-```
-python main.py --provider ollama --model deepseek-r1:7b --parser-provider none
-```
-
-or simply:
-
-```
-python main.py --provider ollama --model deepseek-r1:7b
+# Cloud providers
+python scripts/main.py --provider hunyuan --model hunyuan-t1-latest
+python scripts/main.py --provider deepseek --model deepseek-chat
 ```
 
-This will bypass the secondary LLM and use the primary LLM's output directly.
+### **Extensions: Algorithm Showcase**
 
-## Installation
+```bash
+# Heuristic algorithms (BFS, A*, DFS, Hamiltonian)
+cd extensions/heuristics-v0.04
+python scripts/main.py --algorithm BFS-512 --max-games 5
 
+# Supervised learning (MLP, LightGBM)
+cd extensions/supervised-v0.03  
+python main.py --model MLP --dataset path/to/dataset.csv --max-games 3
+
+# Streamlit interfaces
+streamlit run app.py  # Task-0 dashboard
+streamlit run extensions/streamlit-app-for-replay-and-read-large-files/app.py  # Replay & file reader
+```
+
+## 🌟 **Key Features**
+
+### **🧠 Advanced AI Integration**
+- **Multi-Provider LLM Support**: OpenAI, Anthropic, DeepSeek, Hunyuan, Ollama
+- **Mixture-of-Experts**: Dual LLM architecture for enhanced reasoning
+- **Heuristic Algorithms**: BFS, A*, DFS, Hamiltonian pathfinding
+- **Supervised Learning**: MLP and LightGBM models with automatic training
+- **Robust Error Handling**: Graceful recovery from AI failures
+
+### **📊 Comprehensive Data Generation**
+- **Automatic Dataset Creation**: CSV for ML, JSONL for LLM fine-tuning
+- **Real-time Statistics**: Performance metrics and game analytics
+- **Session Management**: Complete game session tracking and replay
+- **Cross-Platform Compatibility**: UTF-8 encoding and path management
+
+### **🎮 Multiple Interfaces**
+- **PyGame GUI**: Visual game interface with real-time display
+- **Web Interface**: Browser-based gameplay and replay
+- **Streamlit Dashboard**: Analytics, replay, and file management
+- **CLI Interface**: Headless execution for automation and research
+
+### **🔬 Research and Educational Tools**
+- **Extension Framework**: Easy development of new AI algorithms
+- **Replay System**: Analyze AI decision-making processes
+- **Large File Reader**: Handle datasets up to 10GB+ efficiently
+- **Performance Comparison**: Compare different AI approaches
+
+## 📦 **Installation**
+
+### **Quick Setup**
+```bash
+# Clone the repository
+git clone <repository-url>
+cd snake-game-ai
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up API keys (optional - for cloud LLM providers)
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+### **API Configuration**
 Set up API keys in a `.env` file:
 
-```
+```bash
 OLLAMA_HOST=<IP_ADDRESS_OF_OLLAMA_SERVER>
 HUNYUAN_API_KEY=your_hunyuan_api_key_here
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
