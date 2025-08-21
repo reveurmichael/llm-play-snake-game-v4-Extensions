@@ -60,12 +60,32 @@ class SupervisedGameManager(BaseGameManager):
     """
     
     def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize supervised game manager with fail-fast validation.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Raises:
+            ValueError: If config is invalid (fail-fast)
+            RuntimeError: If agent loading fails (fail-fast)
+        """
+        # Fail-fast: Validate configuration
+        if not config or not isinstance(config, dict):
+            raise ValueError("[SSOT] Config must be non-empty dictionary")
+        
         # Initialize base game manager
         super().__init__(config)
         
-        # Supervised learning specific configuration
+        # Supervised learning specific configuration with validation
         self.agent_name = config.get("agent", "mlp")
         self.model_path = config.get("model_path")
+        
+        # Fail-fast: Validate agent name
+        valid_agents = ["mlp", "lightgbm"]
+        if self.agent_name not in valid_agents:
+            raise ValueError(f"[SSOT] Invalid agent: {self.agent_name}. Valid: {valid_agents}")
+        
         self.current_agent = None
         
         # Performance tracking
@@ -73,25 +93,48 @@ class SupervisedGameManager(BaseGameManager):
         self.model_accuracy: float = 0.0
         self.total_predictions: int = 0
         
-        # Load agent
-        self._load_agent()
+        # Load agent with fail-fast
+        if not self._load_agent():
+            raise RuntimeError(f"[SSOT] Failed to load agent: {self.agent_name}")
     
-    def _load_agent(self):
-        """Load the specified ML agent."""
+    def _load_agent(self) -> bool:
+        """
+        Load the specified ML agent with fail-fast validation.
+        
+        Returns:
+            bool: True if agent loaded successfully
+            
+        Raises:
+            RuntimeError: If agent creation fails (fail-fast)
+        """
         try:
             self.current_agent = agent_factory.create_agent(
                 self.agent_name,
                 model_path=self.model_path
             )
             
-            if self.current_agent and self.current_agent.is_loaded:
-                print_success(f"✅ Loaded {self.agent_name} agent successfully")
+            # Fail-fast: Validate agent creation
+            if not self.current_agent:
+                raise RuntimeError(f"[SSOT] Agent factory returned None for {self.agent_name}")
+            
+            # Validate agent has required methods
+            required_methods = ['predict_move', 'get_performance_stats']
+            missing_methods = [method for method in required_methods 
+                             if not hasattr(self.current_agent, method)]
+            if missing_methods:
+                raise RuntimeError(f"[SSOT] Agent missing required methods: {missing_methods}")
+            
+            if self.current_agent.is_loaded:
+                print_success(f"✅ Loaded {self.agent_name} agent with model successfully")
             else:
                 print_warning(f"⚠️ Agent {self.agent_name} loaded but model not available")
+            
+            return True
                 
         except Exception as e:
             print_error(f"Failed to load agent {self.agent_name}: {e}")
             self.current_agent = None
+            return False
     
     def _create_game_logic(self) -> SupervisedGameLogic:
         """Create supervised learning game logic."""

@@ -45,6 +45,20 @@ class BaseSupervisedAgent(ABC):
     """Base class for supervised learning agents."""
     
     def __init__(self, model_path: Optional[str] = None):
+        """
+        Initialize base supervised agent with fail-fast validation.
+        
+        Args:
+            model_path: Optional path to trained model file
+            
+        Raises:
+            ValueError: If model_path is invalid (fail-fast)
+        """
+        # Fail-fast: Validate model path if provided
+        if model_path is not None:
+            if not isinstance(model_path, str) or not model_path.strip():
+                raise ValueError("[SSOT] Model path must be non-empty string")
+        
         self.model_path = model_path
         self.model = None
         self.is_loaded = False
@@ -76,7 +90,7 @@ class BaseSupervisedAgent(ABC):
     
     def extract_features(self, game_state: Dict[str, Any]) -> np.ndarray:
         """
-        Extract features from game state.
+        Extract features from game state with fail-fast validation.
         
         Standard feature extraction for Snake game:
         - Snake head position (normalized)
@@ -84,7 +98,25 @@ class BaseSupervisedAgent(ABC):
         - Snake body positions (relative to head)
         - Wall distances in 4 directions
         - Body collision distances in 4 directions
+        
+        Args:
+            game_state: Game state dictionary
+            
+        Returns:
+            np.ndarray: Feature vector for ML model
+            
+        Raises:
+            ValueError: If game state is invalid (fail-fast)
         """
+        # Fail-fast: Validate game state
+        if not game_state or not isinstance(game_state, dict):
+            raise ValueError("[SSOT] Game state must be non-empty dictionary")
+        
+        required_keys = ['snake', 'food']
+        missing_keys = [key for key in required_keys if key not in game_state]
+        if missing_keys:
+            raise ValueError(f"[SSOT] Missing required game state keys: {missing_keys}")
+        
         start_time = time.time()
         
         try:
