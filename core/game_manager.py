@@ -704,11 +704,202 @@ class BaseGameManager:
         # Base implementation does nothing - extensions override this
         pass
 
+    # -------------------
+    # COMPREHENSIVE ROUNDS MANAGEMENT - Used by all extensions
+    # -------------------
+
+    def _initialize_game_rounds(self) -> None:
+        """Initialize rounds tracking for the current game.
+        
+        This method sets up round management and prepares for round-by-round tracking.
+        """
+        # Reset round counter for new game
+        self.round_count = 1
+        
+        # Hook for extensions to initialize game-specific rounds data
+        self._initialize_game_specific_rounds()
+    
+    def _initialize_game_specific_rounds(self) -> None:
+        """Hook for extensions to initialize game-specific rounds data.
+        
+        Override in subclasses to add extension-specific rounds initialization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def _finalize_game_rounds(self) -> None:
+        """Finalize rounds tracking for the completed game.
+        
+        This method ensures all round data is properly saved and synchronized.
+        """
+        # Ensure final round data is flushed
+        if self.game and hasattr(self.game, 'game_state') and hasattr(self.game.game_state, 'round_manager'):
+            self.game.game_state.round_manager.flush_buffer()
+            self.game.game_state.round_manager.sync_round_data()
+        
+        # Hook for extensions to finalize game-specific rounds data
+        self._finalize_game_specific_rounds()
+    
+    def _finalize_game_specific_rounds(self) -> None:
+        """Hook for extensions to finalize game-specific rounds data.
+        
+        Override in subclasses to add extension-specific rounds finalization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def execute_game_step(self, step_description: str = "") -> bool:
+        """Execute a single game step with automatic rounds management.
+        
+        This method provides a template for executing individual game steps
+        with automatic round tracking and state management.
+        
+        Args:
+            step_description: Optional description of the step being executed
+            
+        Returns:
+            True if game should continue, False if game should end
+        """
+        # Check if game is over
+        if not self.game or self.game.game_over:
+            return False
+        
+        # Start new round for this step
+        self.start_new_round(step_description or f"Step {self.round_count}")
+        
+        # Get current game state
+        game_state = self.game.get_state_snapshot()
+        
+        # Hook for extensions to process game state before move
+        processed_state = self._process_game_state_before_move(game_state)
+        
+        # Get move decision from extension
+        move = self._get_next_move(processed_state)
+        
+        # Validate move
+        if not self._validate_move(move, processed_state):
+            return False
+        
+        # Apply move
+        try:
+            self.game.make_move(move)
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Move application failed: {e}")
+            return False
+        
+        # Update display if GUI is enabled
+        if hasattr(self.game, "update_display"):
+            self.game.update_display()
+        
+        # Hook for extensions to process game state after move
+        self._process_game_state_after_move(self.game.get_state_snapshot())
+        
+        # Check game limits
+        if self._should_end_game():
+            return False
+        
+        return True
+    
+    def _process_game_state_before_move(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Hook for extensions to process game state before move decision.
+        
+        Args:
+            game_state: Current game state dictionary
+            
+        Returns:
+            Processed game state dictionary
+        """
+        # Base implementation returns state unchanged
+        return game_state
+    
+    def _get_next_move(self, game_state: Dict[str, Any]) -> str:
+        """Hook for extensions to determine the next move.
+        
+        Extensions must override this method to implement their move decision logic.
+        
+        Args:
+            game_state: Current game state dictionary
+            
+        Returns:
+            Next move as string (UP, DOWN, LEFT, RIGHT)
+        """
+        raise NotImplementedError("Subclasses must implement _get_next_move()")
+    
+    def _validate_move(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Validate the proposed move against the current game state.
+        
+        Args:
+            move: Proposed move
+            game_state: Current game state
+            
+        Returns:
+            True if move is valid, False otherwise
+        """
+        # Check for invalid moves
+        if move in ["NO_PATH_FOUND", "INVALID", None, ""]:
+            return False
+        
+        # Hook for extensions to add custom validation
+        return self._validate_move_custom(move, game_state)
+    
+    def _validate_move_custom(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Hook for extensions to add custom move validation.
+        
+        Args:
+            move: Proposed move
+            game_state: Current game state
+            
+        Returns:
+            True if move is valid, False otherwise
+        """
+        # Base implementation accepts all non-invalid moves
+        return True
+    
+    def _process_game_state_after_move(self, game_state: Dict[str, Any]) -> None:
+        """Hook for extensions to process game state after move is applied.
+        
+        Args:
+            game_state: Game state after move application
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def _should_end_game(self) -> bool:
+        """Check if the game should end based on various conditions.
+        
+        Returns:
+            True if game should end, False otherwise
+        """
+        # Check basic game over condition
+        if self.game and self.game.game_over:
+            return True
+        
+        # Check limits using limits manager
+        if hasattr(self, 'limits_manager') and self.limits_manager:
+            steps = getattr(self.game.game_state, 'steps', 0) if self.game else 0
+            if self.limits_manager.should_end_game(steps, "MAX_STEPS"):
+                if self.game:
+                    self.game.game_state.record_game_end("MAX_STEPS_REACHED")
+                return True
+        
+        # Hook for extensions to add custom end conditions
+        return self._should_end_game_custom()
+    
+    def _should_end_game_custom(self) -> bool:
+        """Hook for extensions to add custom game end conditions.
+        
+        Returns:
+            True if game should end based on extension-specific conditions
+        """
+        # Base implementation doesn't add any conditions
+        return False
+
     def run_single_game(self) -> float:
         """Run a single game and return its duration.
         
-        This method provides a template for running individual games that
-        extensions can override while maintaining consistent structure.
+        This method provides a comprehensive template for running individual games
+        with automatic rounds management and state tracking.
         
         Returns:
             Duration of the game in seconds
@@ -721,18 +912,26 @@ class BaseGameManager:
         if self.game:
             self.game.reset()
         
+        # Initialize rounds tracking
+        self._initialize_game_rounds()
+        
         # Template method - extensions implement game-specific logic
         self._execute_game_loop()
+        
+        # Finalize rounds tracking
+        self._finalize_game_rounds()
         
         return time.time() - start_time
     
     def _execute_game_loop(self) -> None:
         """Execute the main game loop.
         
-        Extensions must override this method to implement their specific
-        game execution logic (LLM planning, heuristic pathfinding, RL training, etc.).
+        Extensions can override this method to implement custom game loops,
+        or use the default step-by-step execution with _get_next_move().
         """
-        raise NotImplementedError("Subclasses must implement _execute_game_loop()")
+        # Default implementation: step-by-step execution
+        while self.execute_game_step():
+            pass  # Continue until game ends
 
     def run_game_session(self) -> None:
         """Run a complete game session with automatic session management.

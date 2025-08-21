@@ -41,22 +41,11 @@ class SimpleGameManager(BaseGameManager):
         # That's it! One line gets you full session management
         self.run_game_session()
     
-    def _execute_game_loop(self) -> None:
-        """Execute simple random-move game loop."""
+    def _get_next_move(self, game_state: Dict[str, Any]) -> str:
+        """Get next random move."""
         import random
-        
-        steps = 0
-        while not self.game.game_over and steps < 100:
-            steps += 1
-            
-            # Make random move
-            moves = ["UP", "DOWN", "LEFT", "RIGHT"]
-            move = random.choice(moves)
-            
-            try:
-                self.game.make_move(move)
-            except:
-                break  # Invalid move, end game
+        moves = ["UP", "DOWN", "LEFT", "RIGHT"]
+        return random.choice(moves)
     
     def _display_session_start(self) -> None:
         """Customize session start display."""

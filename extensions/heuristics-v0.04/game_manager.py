@@ -269,18 +269,18 @@ class HeuristicGameManager(BaseGameManager):
             print_info(f"📂 Logs: {self.log_dir}")
 
     def _run_single_game(self) -> float:
-        """Run a single game and return its duration using robust state management."""
-        start_time = time.time()
-
-        # Initialize game
-        self.game.reset()
-
+        """Run a single game using the streamlined base class approach."""
+        # Use the base class streamlined approach with heuristics-specific customization
+        return self.run_single_game()
+    
+    def _initialize_game_specific_rounds(self) -> None:
+        """Initialize heuristics-specific rounds data."""
         # Initialize state manager for robust pre/post state separation
-        state_manager = StateManager()
-
-        # Validate initial game state (no round creation yet - rounds start with actual moves)
+        self.state_manager = StateManager()
+        
+        # Validate initial game state
         initial_raw_state = self.game.get_state_snapshot()
-        initial_pre_state = state_manager.create_pre_move_state(initial_raw_state)
+        initial_pre_state = self.state_manager.create_pre_move_state(initial_raw_state)
 
         # Fail-fast: Validate initial game state
         if not initial_pre_state.get_snake_positions():
@@ -291,36 +291,75 @@ class HeuristicGameManager(BaseGameManager):
                 "[SSOT] Initial game state has no snake positions - game reset failed"
             )
 
-        # Ensure round manager is available but don't create any rounds yet
-        # Rounds will be created starting from Round 1 when the first move is made
+        # Ensure round manager is available
         if not (
             hasattr(self.game.game_state, "round_manager")
             and self.game.game_state.round_manager
         ):
             raise RuntimeError("[SSOT] Round manager missing after game reset.")
+    
+    def _process_game_state_before_move(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Process game state before move using heuristics state management."""
+        # Create immutable pre-move state from current game state
+        pre_state = self.state_manager.create_pre_move_state(game_state)
 
-        # Game loop with robust state management
-        steps = 0
-        while not self.game.game_over:
-            steps += 1
+        # Store pre-move state in round data
+        if (
+            hasattr(self.game.game_state, "round_manager")
+            and self.game.game_state.round_manager
+        ):
+            round_num = self.game.game_state.round_manager.round_buffer.number
+            round_data = (
+                self.game.game_state.round_manager._get_or_create_round_data(
+                    round_num
+                )
+            )
+            round_data["game_state"] = dict(
+                pre_state.game_state
+            )  # Convert back to dict for storage
 
-            # Sync previous round's data before starting a new round
-            if (
-                hasattr(self.game.game_state, "round_manager")
-                and self.game.game_state.round_manager
-                and self.round_count > 0
-            ):
-                self.game.game_state.round_manager.sync_round_data()
+        # Store pre-state for validation
+        self.current_pre_state = pre_state
+        
+        # Return state dict for agent compatibility
+        return dict(pre_state.game_state)
+    
+    def _get_next_move(self, game_state: Dict[str, Any]) -> str:
+        """Get next move from heuristics agent with explanation."""
+        # Fail-fast: Ensure game logic has required method
+        if not hasattr(self.game, "get_next_planned_move_with_state"):
+            raise RuntimeError(
+                "[SSOT] Game logic missing get_next_planned_move_with_state method - required for SSOT compliance"
+            )
 
-            # Start new round for each move
-            self.start_new_round(f"{self.algorithm_name} pathfinding")
+        # Get move and explanation using processed state
+        move, explanation = self.game.get_next_planned_move_with_state(
+            game_state, return_explanation=True
+        )
 
-            # --- ROBUST PRE-MOVE STATE MANAGEMENT ---
-            # Create immutable pre-move state from current game state
-            raw_pre_state = self.game.get_state_snapshot()
-            pre_state = state_manager.create_pre_move_state(raw_pre_state)
+        # --- FAIL-FAST: VALIDATE EXPLANATION HEAD CONSISTENCY ---
+        if not validate_explanation_head_consistency(self.current_pre_state, explanation):
+            raise RuntimeError(
+                "[SSOT] FAIL-FAST: Explanation head position does not match pre-move state"
+            )
 
-            # Store pre-move state in round data
+        return move
+    
+    def _validate_move_custom(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Validate move using heuristics-specific validation."""
+        # Use centralized SSOT validation
+        valid_moves = calculate_valid_moves_ssot(game_state)
+        
+        if move == "NO_PATH_FOUND":
+            if valid_moves:
+                head = self.current_pre_state.get_head_position()
+                print_error(
+                    f"[SSOT VIOLATION] Agent returned 'NO_PATH_FOUND' but valid moves exist: {valid_moves} for head {head}"
+                )
+                raise RuntimeError(
+                    f"SSOT violation: agent returned 'NO_PATH_FOUND' but valid moves exist: {valid_moves}"
+                )
+            # Record final game state
             if (
                 hasattr(self.game.game_state, "round_manager")
                 and self.game.game_state.round_manager
@@ -331,160 +370,56 @@ class HeuristicGameManager(BaseGameManager):
                         round_num
                     )
                 )
-                round_data["game_state"] = dict(
-                    pre_state.game_state
-                )  # Convert back to dict for storage
-
-            # --- AGENT DECISION MAKING WITH IMMUTABLE STATE ---
-            # Extract state dict for agent compatibility (safe because original was deep-copied)
-            agent_state_dict = dict(pre_state.game_state)
-
-            # Fail-fast: Ensure game logic has required method
-            if not hasattr(self.game, "get_next_planned_move_with_state"):
-                raise RuntimeError(
-                    "[SSOT] Game logic missing get_next_planned_move_with_state method - required for SSOT compliance"
+                round_data["game_state"] = copy.deepcopy(
+                    self.game.get_state_snapshot()
                 )
+            self.game.game_state.record_game_end("NO_PATH_FOUND")
+            return False
 
-            # Get move and explanation using immutable pre-move state
-            move, explanation = self.game.get_next_planned_move_with_state(
-                agent_state_dict, return_explanation=True
-            )
-
-            # --- FAIL-FAST: VALIDATE EXPLANATION HEAD CONSISTENCY ---
-            if not validate_explanation_head_consistency(pre_state, explanation):
-                raise RuntimeError(
-                    "[SSOT] FAIL-FAST: Explanation head position does not match pre-move state"
-                )
-
-            # --- FAIL-FAST SSOT VALIDATION ---
-            # Validate move against pre-move state using centralized utilities
-            head = pre_state.get_head_position()
-            body_positions = pre_state.get_snake_positions()
-            manhattan_distance = calculate_manhattan_distance(
-                dict(pre_state.game_state)
-            )
-            valid_moves = calculate_valid_moves_ssot(dict(pre_state.game_state))
-
-            if move == "NO_PATH_FOUND":
-                if valid_moves:
-                    print_error(
-                        f"[SSOT VIOLATION] Agent returned 'NO_PATH_FOUND' but valid moves exist: {valid_moves} for head {head}"
-                    )
-                    raise RuntimeError(
-                        f"SSOT violation: agent returned 'NO_PATH_FOUND' but valid moves exist: {valid_moves}"
-                    )
-                # Record final game state
-                if (
-                    hasattr(self.game.game_state, "round_manager")
-                    and self.game.game_state.round_manager
-                ):
-                    round_num = self.game.game_state.round_manager.round_buffer.number
-                    round_data = (
-                        self.game.game_state.round_manager._get_or_create_round_data(
-                            round_num
-                        )
-                    )
-                    round_data["game_state"] = copy.deepcopy(
-                        self.game.get_state_snapshot()
-                    )
-                self.game.game_state.record_game_end("NO_PATH_FOUND")
-                break
-
-            if move not in valid_moves:
-                raise RuntimeError(
-                    f"SSOT violation: agent move '{move}' not in valid moves {valid_moves}"
-                )
-
-            # --- APPLY MOVE AND CREATE POST-MOVE STATE ---
-            # Apply move to game logic
-            self.game.make_move(move)
-
-            # Create post-move state from game state after move
-            raw_post_state = self.game.get_state_snapshot()
-            post_state = state_manager.create_post_move_state(
-                pre_state, move, raw_post_state
-            )
-
-            # --- POST-MOVE VALIDATION ---
-            # Check if there are any valid moves left after move
-            post_valid_moves = calculate_valid_moves_ssot(dict(post_state.game_state))
-            if not post_valid_moves:
-                print_error(
-                    "[DEBUG] No valid moves left after move. Ending game as TRAPPED/NO_PATH_FOUND."
-                )
-                self.game.game_state.record_game_end("NO_PATH_FOUND")
-                break
-
-            # Check if apple is reachable from new post-move head position
-            post_head = post_state.get_head_position()
-            post_apple = post_state.get_apple_position()
-            post_snake_positions = post_state.get_snake_positions()
-            obstacles = set(tuple(p) for p in post_snake_positions[:-1])
-
-            # Simple BFS pathfinding implementation
-            path_to_apple = bfs_pathfind(
-                post_head, post_apple, obstacles, post_state.get_grid_size()
-            )
-            if path_to_apple is None:
-                print_error(
-                    "Apple unreachable after move. Ending game as NO_PATH_FOUND."
-                )
-                self.game.game_state.record_game_end("NO_PATH_FOUND")
-                break
-
-            # Update display if GUI is enabled
-            if hasattr(self.game, "update_display"):
-                self.game.update_display()
-
-            # Check max steps after move execution using limits manager
-            if self.limits_manager.should_end_game(steps, "MAX_STEPS"):
-                print_error("[DEBUG] Max steps reached. Current game state:")
-                print_error(f"[DEBUG] Head: {self.game.head_position}")
-                print_error(f"[DEBUG] Snake: {self.game.snake_positions}")
-                print_error(f"[DEBUG] Apple: {self.game.apple_position}")
-                print_error(f"[DEBUG] Score: {self.game.game_state.score}")
-                print_error(f"[DEBUG] Steps: {self.game.game_state.steps}")
-                print_error(f"[DEBUG] Game over: {self.game.game_over}")
-                print_error(
-                    f"[DEBUG] Game end reason: {getattr(self.game.game_state, 'game_end_reason', 'None')}"
-                )
-
-                # Record the final move before ending the game
-                if (
-                    hasattr(self.game.game_state, "round_manager")
-                    and self.game.game_state.round_manager
-                ):
-                    round_num = self.game.game_state.round_manager.round_buffer.number
-                    round_data = (
-                        self.game.game_state.round_manager._get_or_create_round_data(
-                            round_num
-                        )
-                    )
-                    round_data["game_state"] = copy.deepcopy(
-                        self.game.get_state_snapshot()
-                    )
-
-                self.game.game_state.record_game_end("MAX_STEPS_REACHED")
-                break
-
-        # Calculate duration
-        game_duration = time.time() - start_time
-
-        # --- FAIL-FAST: Ensure final step is recorded ---
-        final_steps = self.game.game_state.steps
-        final_rounds = (
-            self.game.game_state.round_manager.round_count
-            if hasattr(self.game.game_state, "round_manager")
-            else 0
-        )
-        if final_steps != steps:
-            print_error(
-                f"[SSOT] FAIL-FAST: Step count mismatch! Game state shows {final_steps} steps but loop executed {steps} steps"
-            )
+        if move not in valid_moves:
             raise RuntimeError(
-                f"[SSOT] Step count mismatch: game_state.steps={final_steps}, loop_steps={steps}"
+                f"SSOT violation: agent move '{move}' not in valid moves {valid_moves}"
             )
+        
+        return True
+    
+    def _process_game_state_after_move(self, game_state: Dict[str, Any]) -> None:
+        """Process game state after move using heuristics post-move validation."""
+        # Create post-move state from game state after move
+        post_state = self.state_manager.create_post_move_state(
+            self.current_pre_state, 
+            self.game.get_last_move() if hasattr(self.game, 'get_last_move') else "UNKNOWN",
+            game_state
+        )
 
+        # --- POST-MOVE VALIDATION ---
+        # Check if there are any valid moves left after move
+        post_valid_moves = calculate_valid_moves_ssot(dict(post_state.game_state))
+        if not post_valid_moves:
+            print_error(
+                "[DEBUG] No valid moves left after move. Ending game as TRAPPED/NO_PATH_FOUND."
+            )
+            self.game.game_state.record_game_end("NO_PATH_FOUND")
+            return
+
+        # Check if apple is reachable from new post-move head position
+        post_head = post_state.get_head_position()
+        post_apple = post_state.get_apple_position()
+        post_snake_positions = post_state.get_snake_positions()
+        obstacles = set(tuple(p) for p in post_snake_positions[:-1])
+
+        # Simple BFS pathfinding implementation
+        path_to_apple = bfs_pathfind(
+            post_head, post_apple, obstacles, post_state.get_grid_size()
+        )
+        if path_to_apple is None:
+            print_error(
+                "Apple unreachable after move. Ending game as NO_PATH_FOUND."
+            )
+            self.game.game_state.record_game_end("NO_PATH_FOUND")
+    
+    def _finalize_game_specific_rounds(self) -> None:
+        """Finalize heuristics-specific rounds data with validation."""
         # --- FAIL-FAST: Ensure explanations, metrics, and moves are aligned ---
         explanations = getattr(self.game.game_state, "move_explanations", [])
         metrics = getattr(self.game.game_state, "move_metrics", [])
@@ -508,8 +443,6 @@ class HeuristicGameManager(BaseGameManager):
             raise RuntimeError(
                 f"[SSOT] Misalignment: explanations={n_expl}, metrics={n_metrics}, pre-move states (rounds 1+): {n_states}"
             )
-
-        return game_duration
 
     def _finalize_game(self, game_duration: float) -> None:
         """Finalize game and update datasets automatically."""

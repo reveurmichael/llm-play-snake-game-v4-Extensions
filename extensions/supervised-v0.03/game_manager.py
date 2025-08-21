@@ -179,49 +179,27 @@ class SupervisedGameManager(BaseGameManager):
             print_info(f"📂 Logs: {self.log_dir}")
 
     def _execute_single_game(self) -> float:
-        """Execute a single game using supervised learning model."""
-        start_time = time.time()
-
-        # Initialize game
-        self.game.reset()
-
-        # Game loop
-        steps = 0
-        while not self.game.game_over:
-            steps += 1
-
-            # Start new round
-            self.start_new_round(f"{self.model_type} prediction")
-
-            # Get current game state
-            game_state = self.game.get_state_snapshot()
-
-            # Get move prediction from model
-            prediction_start = time.time()
-            move = self.game.get_next_planned_move()
-            prediction_time = time.time() - prediction_start
-            self.prediction_times.append(prediction_time)
-
-            # Validate move
-            if move == "NO_PATH_FOUND" or not move:
-                print_warning(f"[SupervisedGameManager] Model returned invalid move: {move}")
-                self.game.game_state.record_game_end("NO_PATH_FOUND")
-                break
-
-            # Apply move
-            self.game.make_move(move)
-
-            # Update display if GUI is enabled
-            if hasattr(self.game, "update_display"):
-                self.game.update_display()
-
-            # Check limits using base class limits manager
-            if self.limits_manager.should_end_game(steps, "MAX_STEPS"):
-                print_info(f"[SupervisedGameManager] Max steps reached: {steps}")
-                self.game.game_state.record_game_end("MAX_STEPS_REACHED")
-                break
-
-        return time.time() - start_time
+        """Execute a single game using the streamlined base class approach."""
+        # Use the base class streamlined approach with supervised learning customization
+        return self.run_single_game()
+    
+    def _get_next_move(self, game_state: Dict[str, Any]) -> str:
+        """Get next move from supervised learning model."""
+        # Get move prediction from model with timing
+        prediction_start = time.time()
+        move = self.game.get_next_planned_move()
+        prediction_time = time.time() - prediction_start
+        self.prediction_times.append(prediction_time)
+        
+        return move
+    
+    def _validate_move_custom(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Validate move from supervised learning model."""
+        if move == "NO_PATH_FOUND" or not move:
+            print_warning(f"[SupervisedGameManager] Model returned invalid move: {move}")
+            self.game.game_state.record_game_end("NO_PATH_FOUND")
+            return False
+        return True
 
     def _add_task_specific_game_data(self, game_data: Dict[str, Any], game_duration: float) -> None:
         """Add supervised learning specific game data."""
