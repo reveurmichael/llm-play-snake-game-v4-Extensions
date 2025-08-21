@@ -1,72 +1,87 @@
 # Supervised Learning Extension v0.03
 
-## 🎯 **Core Philosophy: ML Integration Excellence**
+## 🎯 **Core Philosophy: Agent-Based ML Excellence**
 
-The supervised learning extension demonstrates the perfect integration of machine learning models with the Snake Game AI framework, showcasing how to build comprehensive ML pipelines with minimal code through elegant architecture.
+The supervised learning extension demonstrates perfect agent-based machine learning integration with the Snake Game AI framework, showcasing how to build comprehensive ML agents with minimal code through elegant architecture.
 
 ### **Educational Value**
-- **ML Integration Patterns**: Perfect examples of integrating PyTorch and LightGBM
-- **Feature Engineering**: 16 grid-agnostic features optimized for ML performance
-- **Training Pipeline**: Automated model training with validation and analysis
-- **Performance Comparison**: Framework for comparing ML with other AI approaches
+- **Agent-Based Architecture**: Perfect examples of ML agents using trained models
+- **Feature Engineering**: 20+ grid-agnostic features optimized for ML performance
+- **Dual ML Support**: Both PyTorch neural networks and LightGBM gradient boosting
+- **Training Interface**: Beautiful Streamlit interface with real-time training
+- **Performance Analysis**: Comprehensive inference and training analytics
 
 ## 🏗️ **Architecture Excellence**
 
-### **Perfect BaseGameManager Integration**
+### **Perfect Agent-Based Architecture**
 ```python
 class SupervisedGameManager(BaseGameManager):
     """
     Demonstrates 80% code reduction through perfect inheritance.
-    
-    Only 25 lines of extension-specific code get:
-    - Complete session management
-    - JSON file I/O with UTF-8 encoding
-    - Statistics tracking and analysis
-    - Error handling and recovery
-    - GUI integration (optional)
+    Uses agent-based architecture with trained ML models.
     """
     
-    GAME_LOGIC_CLS = SupervisedGameLogic  # Factory pattern
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize with agent factory and fail-fast validation."""
+        # Fail-fast validation
+        if not config or 'agent' not in config:
+            raise ValueError("[SSOT] Agent configuration required")
+        
+        super().__init__(config)
+        
+        # Load ML agent using factory pattern
+        self.current_agent = agent_factory.create_agent(
+            config['agent'], 
+            model_path=config.get('model_path')
+        )
     
     def _get_next_move(self, game_state):
-        """Core ML prediction with timing analysis."""
-        prediction_start = time.time()
-        move = self.game.get_next_planned_move()
-        self.prediction_times.append(time.time() - prediction_start)
+        """Get move from ML agent with performance tracking."""
+        if not self.current_agent:
+            raise RuntimeError("[SSOT] No agent available")
+        
+        start_time = time.time()
+        move = self.current_agent.predict_move(game_state)
+        self.prediction_times.append(time.time() - start_time)
         return move
     
-    def _add_task_specific_game_data(self, game_data, game_duration):
-        """Add ML-specific metrics to game data."""
-        game_data["model_type"] = self.model_type
-        game_data["model_accuracy"] = self.model_accuracy
-        game_data["avg_prediction_time"] = np.mean(self.prediction_times)
-    
-    def _display_task_specific_summary(self, summary):
-        """Display ML-specific performance metrics."""
-        print_info(f"🧠 Model: {self.model_type}")
-        print_info(f"🎯 Accuracy: {self.model_accuracy:.1%}")
-        print_info(f"⚡ Avg prediction: {summary['avg_prediction_time']:.4f}s")
+    def _add_task_specific_game_data(self, game_data_dict):
+        """Add ML agent performance data."""
+        if self.current_agent:
+            game_data_dict["agent_stats"] = self.current_agent.get_performance_stats()
+            game_data_dict["model_info"] = self.current_agent.get_model_info()
 ```
 
-### **ML Model Architecture**
+### **Agent Factory Architecture**
 ```python
-# Factory pattern for model creation
-def create_model(model_type: str, dataset_path: str, verbose: bool) -> BaseModel:
-    """Canonical create() method following SUPREME_RULES."""
-    if model_type.upper() == "MLP":
-        return MLPModel(dataset_path, verbose)
-    elif model_type.upper() == "LIGHTGBM":
-        return LightGBMModel(dataset_path, verbose)
-    else:
-        raise ValueError(f"Unknown model: {model_type}")
+# Agent factory pattern for ML models
+class SupervisedAgentFactory:
+    """Factory for creating supervised learning agents."""
+    
+    @classmethod
+    def create_agent(cls, agent_name: str, **kwargs):
+        """Create agent by name with model loading."""
+        if agent_name == "mlp":
+            return MLPAgent(model_path=kwargs.get('model_path'))
+        elif agent_name == "lightgbm":
+            return LightGBMAgent(model_path=kwargs.get('model_path'))
+        else:
+            raise ValueError(f"Unknown agent: {agent_name}")
 
-# Clean inheritance hierarchy
-BaseModel
-├── MLPModel (PyTorch neural network)
-└── LightGBMModel (Gradient boosting)
+# Usage
+agent_factory = SupervisedAgentFactory()
+mlp_agent = agent_factory.create_agent("mlp", model_path="trained_model.pth")
 ```
 
-## 🧠 **Model Implementations**
+### **Agent Inheritance Hierarchy**
+```python
+# Clean inheritance with fail-fast validation
+BaseSupervisedAgent (ABC)
+├── MLPAgent           # PyTorch neural networks with advanced architecture
+└── LightGBMAgent      # Gradient boosting with feature importance analysis
+```
+
+## 🧠 **Agent Implementations**
 
 ### **MLP Model (PyTorch)**
 - **Architecture**: 16 → 64 → 32 → 16 → 4 neurons with ReLU activation
