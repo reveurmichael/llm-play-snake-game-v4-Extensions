@@ -2,7 +2,7 @@
 Universal Game Summary Generator for all Snake Game AI tasks (0-5).
 
 Implements the Template Method and Strategy patterns to provide a single source of truth
-for game and session summary generation. All extensions (Task-0, heuristics, RL, etc.)
+for game and session summary generation. All extensions (Task-0, extensions, etc.)
 should use this generator, with extension-specific fields handled via hooks or subclassing.
 
 Design Patterns:

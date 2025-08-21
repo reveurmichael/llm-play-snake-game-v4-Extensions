@@ -31,21 +31,15 @@ class GameData(BaseGameData):
         super().__init__()
         self.stats = GameStatistics()  # LLM-specific stats
 
-# Extensions use BaseGameData directly - no extension-specific classes needed
+# Extensions create their own GameData classes by inheriting from BaseGameData
 
-# Task-2 (RL): Could extend BaseGameData for RL-specific state
-class RLGameData(BaseGameData):
-    def __init__(self):
-        super().__init__()
-        self.episode_rewards = []  # RL-specific extension
-```
-
+"""
 === JSON OUTPUT GUARANTEE ===
 All game_N.json files follow the same schema for shared fields:
 - step_stats contains identical field names
 - detailed_history uses same apple_positions/moves format  
 - metadata section is consistent across tasks
-- Task-specific extensions appear as additional fields without conflicts
+- Extension-specific data appears as additional fields without conflicts
 """
 
 from __future__ import annotations
@@ -292,7 +286,7 @@ class BaseGameData:
     def start_new_round(self, apple_position=None) -> None:
         """Public helper to advance to the next round (no-op if RoundManager absent).
 
-        Tasks that maintain the *round* concept (LLM policy, heuristic
+        Tasks that maintain the *round* concept (LLM policy, extensions
         agents with look-ahead plans, etc.) should call this whenever a new
         top-level plan is generated.
         """

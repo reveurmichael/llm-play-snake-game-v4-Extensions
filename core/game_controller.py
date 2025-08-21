@@ -250,7 +250,7 @@ class GameControllerAdapter(BaseGameController):
     Why not Task0GameControllerAdapter?
     - Violates naming conventions (Task-0 is implicit in root)
     - Should be just GameControllerAdapter
-    - Extensions will create HeuristicGameControllerAdapter, etc.
+    - Extensions will create their own controller adapters as needed.
     """
     
     def __init__(self, game_manager: GameManager):

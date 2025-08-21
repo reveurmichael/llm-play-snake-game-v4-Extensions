@@ -19,7 +19,7 @@ benefits:
 1. **Head-less CI pipelines** – unit-tests can exercise the full planning &
    game-logic stack on platforms where SDL/pygame is unavailable.
 2. **Lower coupling / faster import time** – every non-visual extension
-   (heuristics, RL, dataset generation, …) remains free of the heavyweight
+   (extensions for various AI approaches) remains free of the heavyweight
    dependency.
 
 The pattern uses ``importlib.import_module("pygame")`` and stores the module
@@ -70,7 +70,7 @@ class BaseGameManager:
     statistics tracking, and file I/O. Extensions inherit and customize through
     elegant hook methods.
     
-    Supports: Heuristics, Supervised Learning, RL, LLM Fine-tuning, Distillation
+    Supports: All extension types with minimal inheritance code
     """
 
     # Factory hook - subclasses specify their game logic type
@@ -247,7 +247,7 @@ class BaseGameManager:
         """Begin a new planning round.
         
         All tasks use rounds to track planning cycles:
-        - Heuristics: Each path-finding attempt
+        - Extensions: Each algorithm execution
         - RL: Each action selection
         - LLM: Each prompt/response cycle
         """
@@ -347,7 +347,7 @@ class BaseGameManager:
         
         Args:
             base_dir: Base logs directory (e.g., "logs/")
-            task_name: Task identifier (e.g., "heuristics", "rl", "llm")
+            task_name: Task identifier (e.g., "extension", "llm")
         """
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
