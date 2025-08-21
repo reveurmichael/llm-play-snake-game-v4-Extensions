@@ -121,6 +121,12 @@ class BaseGameManager:
         self._first_plan: bool = True  # Track first planning cycle for round management
 
         # -------------------
+        # Game controller integration (used by ALL tasks)
+        # -------------------
+        self.game_controller: Optional["BaseGameController"] = None
+        self.controller_initialized: bool = False
+
+        # -------------------
         # Visualization & timing (used by ALL tasks)
         # -------------------
         self.use_gui: bool = not getattr(args, "no_gui", False)
@@ -194,9 +200,15 @@ class BaseGameManager:
     # -------------------
 
     def setup_game(self) -> None:
-        """Create game logic and optional GUI interface."""
-        # Use the specified game logic class (BaseGameLogic by default)
-        self.game = self.GAME_LOGIC_CLS(use_gui=self.use_gui)
+        """Create game logic and optional GUI interface with automatic controller integration."""
+        # Get grid size from args if available
+        grid_size = getattr(self.args, "grid_size", 10)
+        
+        # Use the specified game logic class with correct grid size
+        self.game = self.GAME_LOGIC_CLS(grid_size=grid_size, use_gui=self.use_gui)
+
+        # Setup game controller integration
+        self._setup_game_controller()
 
         # Attach GUI if visual mode is requested
         if self.use_gui:
@@ -207,6 +219,62 @@ class BaseGameManager:
             if hasattr(self.game, "grid_size"):
                 gui.resize(self.game.grid_size)  # auto-adjust cell size & grid lines
             self.game.set_gui(gui)
+    
+    def _setup_game_controller(self) -> None:
+        """Setup game controller integration for consistent game management.
+        
+        This method creates and configures the appropriate game controller
+        based on the extension type and requirements.
+        """
+        # Create appropriate controller based on GUI requirements
+        if self.use_gui:
+            self._create_gui_controller()
+        else:
+            self._create_headless_controller()
+        
+        # Initialize controller if created
+        if self.game_controller:
+            self._initialize_controller()
+    
+    def _create_gui_controller(self) -> None:
+        """Create GUI-based game controller."""
+        try:
+            from core.game_controller import CLIGameController
+            self.game_controller = CLIGameController(self, use_gui=True)
+        except ImportError:
+            # Fallback to headless if GUI components not available
+            self._create_headless_controller()
+    
+    def _create_headless_controller(self) -> None:
+        """Create headless game controller."""
+        try:
+            from core.game_controller import CLIGameController
+            self.game_controller = CLIGameController(self, use_gui=False)
+        except ImportError:
+            # Controller is optional - extensions can work without it
+            self.game_controller = None
+    
+    def _initialize_controller(self) -> None:
+        """Initialize the game controller with extension-specific configuration."""
+        if not self.game_controller:
+            return
+        
+        try:
+            # Hook for extensions to customize controller initialization
+            self._configure_controller()
+            self.controller_initialized = True
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Controller initialization failed: {e}")
+            self.game_controller = None
+    
+    def _configure_controller(self) -> None:
+        """Hook for extensions to configure the game controller.
+        
+        Override in subclasses to add extension-specific controller configuration.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
 
     def get_pause_between_moves(self) -> float:
         """Get pause duration between moves.
@@ -323,7 +391,7 @@ class BaseGameManager:
     # -------------------
 
     def setup_logging(self, base_dir: str, task_name: str) -> None:
-        """Set up logging directory structure.
+        """Set up logging directory structure with comprehensive path management.
         
         Args:
             base_dir: Base logs directory (e.g., "logs/")
@@ -332,7 +400,93 @@ class BaseGameManager:
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_dir = os.path.join(base_dir, f"{task_name}_{timestamp}")
-        os.makedirs(self.log_dir, exist_ok=True)
+        
+        # Create directory with comprehensive error handling
+        self.create_log_directory()
+    
+    def create_log_directory(self) -> bool:
+        """Create log directory with comprehensive error handling.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.log_dir:
+            return False
+        
+        try:
+            os.makedirs(self.log_dir, exist_ok=True)
+            
+            # Create standard subdirectories for extensions
+            self._create_standard_subdirectories()
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to create log directory {self.log_dir}: {e}")
+            self.log_dir = None
+            return False
+    
+    def _create_standard_subdirectories(self) -> None:
+        """Create standard subdirectories for organized logging.
+        
+        Extensions can override this to create custom subdirectories.
+        """
+        # Hook for extensions to create custom subdirectories
+        self._create_extension_subdirectories()
+    
+    def _create_extension_subdirectories(self) -> None:
+        """Hook for extensions to create custom subdirectories.
+        
+        Override in subclasses to create extension-specific directories.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def get_log_file_path(self, filename: str, subdirectory: str = "") -> str:
+        """Get full path for a log file with optional subdirectory.
+        
+        Args:
+            filename: Name of the log file
+            subdirectory: Optional subdirectory within log_dir
+            
+        Returns:
+            Full path to the log file
+        """
+        if not self.log_dir:
+            return filename
+        
+        if subdirectory:
+            full_dir = os.path.join(self.log_dir, subdirectory)
+            os.makedirs(full_dir, exist_ok=True)
+            return os.path.join(full_dir, filename)
+        else:
+            return os.path.join(self.log_dir, filename)
+    
+    def save_text_file(self, content: str, filename: str, description: str = "Text file", subdirectory: str = "") -> bool:
+        """Save text content to file with comprehensive error handling.
+        
+        Args:
+            content: Text content to save
+            filename: Name of the file to save
+            description: Description for logging purposes
+            subdirectory: Optional subdirectory within log_dir
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            file_path = self.get_log_file_path(filename, subdirectory)
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to save {description} to {filename}: {e}")
+            return False
 
     def save_session_summary(self) -> None:
         """Save comprehensive session summary with extension customization."""
@@ -413,16 +567,81 @@ class BaseGameManager:
         pass
     
     def save_session_summary_to_file(self, summary: Dict[str, Any]) -> None:
-        """Save session summary to JSON file.
+        """Save session summary to JSON file with comprehensive error handling.
         
         Args:
             summary: Session summary dictionary to save
         """
-        import json
+        self.save_json_file(summary, "summary.json", "Session summary")
+    
+    def save_json_file(self, data: Dict[str, Any], filename: str, description: str = "Data") -> bool:
+        """Save any dictionary to JSON file with comprehensive error handling.
         
-        summary_file = os.path.join(self.log_dir, "summary.json")
-        with open(summary_file, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2, ensure_ascii=False)
+        This method provides a unified way to save JSON files across all extensions
+        with consistent formatting, encoding, and error handling.
+        
+        Args:
+            data: Dictionary to save
+            filename: Name of the file to save
+            description: Description for logging purposes
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.log_dir:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Cannot save {description}: no log directory")
+            return False
+        
+        try:
+            import json
+            from extensions.common.utils.game_state_utils import to_serializable
+            
+            # Ensure data is serializable
+            serializable_data = to_serializable(data)
+            
+            # Create full file path
+            file_path = os.path.join(self.log_dir, filename)
+            
+            # Save with consistent formatting
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(serializable_data, f, indent=2, ensure_ascii=False)
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to save {description} to {filename}: {e}")
+            return False
+    
+    def load_json_file(self, filename: str, description: str = "Data") -> Optional[Dict[str, Any]]:
+        """Load JSON file with comprehensive error handling.
+        
+        Args:
+            filename: Name of the file to load
+            description: Description for logging purposes
+            
+        Returns:
+            Loaded dictionary or None if failed
+        """
+        if not self.log_dir:
+            return None
+            
+        try:
+            import json
+            
+            file_path = os.path.join(self.log_dir, filename)
+            
+            if not os.path.exists(file_path):
+                return None
+            
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+                
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Failed to load {description} from {filename}: {e}")
+            return None
     
     def display_session_summary(self, summary: Dict[str, Any]) -> None:
         """Display session summary to console.
@@ -556,16 +775,10 @@ class BaseGameManager:
         Args:
             game_data: Dictionary containing game data to save
         """
-        if not self.log_dir:
-            return
-            
-        import json
-        from extensions.common.utils.game_state_utils import to_serializable
-        
         # Use game_count for consistent numbering (games start at 1)
-        game_file = os.path.join(self.log_dir, f"game_{self.game_count}.json")
-        with open(game_file, "w", encoding="utf-8") as f:
-            json.dump(to_serializable(game_data), f, indent=2)
+        filename = f"game_{self.game_count}.json"
+        description = f"Game {self.game_count} data"
+        self.save_json_file(game_data, filename, description)
 
     def display_game_results(self, game_duration: float) -> None:
         """Display game results to console.

@@ -104,7 +104,7 @@ class SupervisedGameManager(BaseGameManager):
         print_info(f"[SupervisedGameManager] Initialization complete for {self.model_type}")
 
     def _setup_logging(self) -> None:
-        """Setup logging directory for supervised learning extension."""
+        """Setup logging directory using streamlined base class approach."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         grid_size = getattr(self.args, "grid_size", 10)
 
@@ -117,8 +117,24 @@ class SupervisedGameManager(BaseGameManager):
         # Model-specific subdirectory
         self.log_dir = os.path.join(base_dir, self.model_type.lower())
 
-        # Create directories
-        os.makedirs(self.log_dir, exist_ok=True)
+        # Use base class directory creation with error handling
+        self.create_log_directory()
+    
+    def _create_extension_subdirectories(self) -> None:
+        """Create supervised learning specific subdirectories."""
+        # Create subdirectories for organized ML data
+        subdirs = ["models", "predictions", "metrics"]
+        for subdir in subdirs:
+            try:
+                os.makedirs(os.path.join(self.log_dir, subdir), exist_ok=True)
+            except Exception:
+                pass  # Non-critical if subdirectories can't be created
+    
+    def _configure_controller(self) -> None:
+        """Configure the game controller for supervised learning specific needs."""
+        if self.game_controller:
+            # Add any ML-specific controller configuration here
+            pass
 
     def _setup_model(self) -> None:
         """Setup and train the supervised learning model."""

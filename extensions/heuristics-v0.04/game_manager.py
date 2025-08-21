@@ -163,24 +163,11 @@ class HeuristicGameManager(BaseGameManager):
         )
 
     def _setup_logging(self) -> None:
-        """Setup logging directory for **extension mode**.
-
-        CRITICAL: All heuristic extensions write their outputs under:
-
-            ROOT/logs/extensions/datasets/grid-size-N/<extension>_v<version>_<timestamp>/
-
-        This follows the standardized dataset folder structure defined in
-        docs/extensions-guideline/datasets-folder.md for consistency across
-        all extensions and grid sizes.
-
-        Directory pattern:
-            logs/extensions/datasets/grid-size-{N}/heuristics_v0.04_{timestamp}/
-        """
+        """Setup logging directory using streamlined base class approach."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         grid_size = getattr(self.args, "grid_size", 10)
 
         # Follow standardized dataset folder structure
-        # Reference: docs/extensions-guideline/datasets-folder.md
         dataset_folder = f"heuristics_v0.04_{timestamp}"
         base_dir = os.path.join(
             EXTENSIONS_LOGS_DIR, "datasets", f"grid-size-{grid_size}", dataset_folder
@@ -189,8 +176,18 @@ class HeuristicGameManager(BaseGameManager):
         # Algorithm-specific subdirectory (all files for one run live here)
         self.log_dir = os.path.join(base_dir, self.algorithm_name.lower())
 
-        # Create directories
-        os.makedirs(self.log_dir, exist_ok=True)
+        # Use base class directory creation with error handling
+        self.create_log_directory()
+    
+    def _create_extension_subdirectories(self) -> None:
+        """Create heuristics-specific subdirectories."""
+        # Create subdirectories for organized heuristics data
+        subdirs = ["datasets", "states", "explanations"]
+        for subdir in subdirs:
+            try:
+                os.makedirs(os.path.join(self.log_dir, subdir), exist_ok=True)
+            except Exception:
+                pass  # Non-critical if subdirectories can't be created
 
     def _setup_agent(self) -> None:
         """
@@ -508,21 +505,8 @@ class HeuristicGameManager(BaseGameManager):
             game_data["game_number"] = self.game_count
             self.dataset_generator._process_single_game(game_data)
 
-    def setup_game(self) -> None:
-        """Create game logic and optional GUI interface with correct grid size."""
-        # Get grid size from command line arguments
-        grid_size = getattr(self.args, "grid_size", 10)
-
-        # Use the specified game logic class with correct grid size
-        self.game = self.GAME_LOGIC_CLS(grid_size=grid_size, use_gui=self.use_gui)
-
-        # Attach GUI if visual mode is requested
-        if self.use_gui:
-            # Lazy import keeps headless extensions free of pygame.
-            from gui.game_gui import GameGUI  # noqa: WPS433 – intentional local import
-
-            gui = GameGUI()
-            # Ensure GUI pixel scaling matches the *actual* game grid size
-            if hasattr(self.game, "grid_size"):
-                gui.resize(self.game.grid_size)  # auto-adjust cell size & grid lines
-            self.game.set_gui(gui)
+    def _configure_controller(self) -> None:
+        """Configure the game controller for heuristics-specific needs."""
+        if self.game_controller:
+            # Add any heuristics-specific controller configuration here
+            pass
