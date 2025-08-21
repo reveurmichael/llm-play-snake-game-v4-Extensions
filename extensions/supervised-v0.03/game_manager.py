@@ -36,6 +36,7 @@ from typing import Dict, Any, Optional, List
 from utils.print_utils import print_info, print_warning, print_success, print_error
 from core.game_manager import BaseGameManager
 from extensions.common import EXTENSIONS_LOGS_DIR
+from config.game_constants import END_REASON_MAP
 
 # Import supervised-specific components
 from .game_logic import SupervisedGameLogic

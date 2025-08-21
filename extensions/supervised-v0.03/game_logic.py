@@ -21,6 +21,7 @@ from typing import Optional, Tuple, Dict, Any
 from core.game_logic import BaseGameLogic
 from core.game_data import BaseGameData
 from utils.print_utils import print_info, print_warning
+from config.game_constants import END_REASON_MAP
 
 
 class SupervisedGameData(BaseGameData):
