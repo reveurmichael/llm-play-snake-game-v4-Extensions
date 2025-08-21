@@ -29,6 +29,7 @@ from utils.print_utils import print_info, print_warning, print_error
 HeuristicRoundManager = BaseRoundManager 
 
 
+# TODO: First question, why is this one NOT OOP ? 
 def create_round_move_mapping(moves_history: List[str], rounds_data: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:
     """Generate mapping of Task-0 round numbers to their move data without any offset."""
     round_mapping: Dict[int, Dict[str, Any]] = {}
@@ -87,6 +88,7 @@ def validate_round_consistency(moves_history: List[str], round_mapping: Dict[int
     return True
 
 
+# TODO: things are not well streamlined at all. A good design would to have many generic things in the base class, and then have the extension to inherit from it and just modify the few things that are specific to the extension.
 def create_dataset_records(
     game_data: Dict[str, Any],
     moves_history: List[str],
@@ -123,6 +125,7 @@ def create_dataset_records(
 
     return records
 
+# TODO: no need for the re-export. Things are to be standalone.
 # Re-export for convenience so callers can `from game_rounds import create_dataset_records`
 __all__ = [
     *globals().get("__all__", []),
