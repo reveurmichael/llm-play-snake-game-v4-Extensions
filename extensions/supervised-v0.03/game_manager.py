@@ -32,8 +32,11 @@ import json
 import time
 from typing import Dict, Any, Optional, List
 
-# Import from project root using absolute imports
-from utils.print_utils import print_info, print_warning, print_success, print_error
+# Simple logging - KISS principle, avoid utils dependency
+def print_info(msg): print(f"[INFO] {msg}")
+def print_warning(msg): print(f"[WARNING] {msg}")
+def print_success(msg): print(f"[SUCCESS] {msg}")
+def print_error(msg): print(f"[ERROR] {msg}")
 from core.game_manager import BaseGameManager
 from extensions.common import EXTENSIONS_LOGS_DIR
 from config.game_constants import END_REASON_MAP
