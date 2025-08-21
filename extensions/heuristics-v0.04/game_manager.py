@@ -82,16 +82,43 @@ class HeuristicGameManager(BaseGameManager):
     GAME_LOGIC_CLS = HeuristicGameLogic
 
     def __init__(self, args: argparse.Namespace, agent: Any) -> None:
-        """Initialize heuristic game manager.
+        """
+        Initialize heuristic game manager with fail-fast validation.
         
         Args:
-            args: Command line arguments
+            args: Command line arguments namespace
             agent: Heuristic agent instance (required)
+            
+        Raises:
+            ValueError: If required arguments are missing or invalid (fail-fast)
+            TypeError: If agent doesn't have required methods (fail-fast)
         """
+        # Fail-fast: Validate arguments
+        if not args:
+            raise ValueError("[SSOT] Arguments namespace is required")
+        
+        if not hasattr(args, 'algorithm'):
+            raise ValueError("[SSOT] Algorithm argument is required")
+        
+        # Fail-fast: Validate agent
+        if agent is None:
+            raise ValueError("[SSOT] Heuristic agent is required")
+        
+        if not hasattr(agent, 'algorithm_name'):
+            raise TypeError("[SSOT] Agent must have algorithm_name attribute")
+        
+        if not hasattr(agent, 'find_path'):
+            raise TypeError("[SSOT] Agent must have find_path method")
+        
         super().__init__(args)
 
-        # Heuristic-specific configuration
+        # Heuristic-specific configuration with validation
         self.algorithm_name: str = getattr(args, "algorithm", DEFAULT_ALGORITHM)
+        
+        # Validate algorithm name
+        from heuristic_config import validate_algorithm_name
+        validate_algorithm_name(self.algorithm_name)
+        
         self.agent: Any = agent
         self.verbose: bool = getattr(args, "verbose", False)
         
