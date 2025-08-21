@@ -52,6 +52,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from core.game_stats_manager import NumPyJSONEncoder
 from utils.moves_utils import normalize_direction
+from config.game_constants import END_REASON_MAP
 from core.game_stats import BaseGameStatistics, GameStatistics
 from core.game_rounds import RoundManager
 

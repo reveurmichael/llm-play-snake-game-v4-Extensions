@@ -343,15 +343,42 @@ class BaseGameManager:
     # Logging infrastructure
 
     def setup_logging(self, base_dir: str, task_name: str) -> None:
-        """Set up logging directory structure with comprehensive path management.
+        """
+        Set up logging directory structure following dataset folder standards.
+        
+        For Task0 (LLM), creates standard logging structure:
+        logs/{task_name}_{timestamp}/
+        
+        For extensions, follows dataset standards:
+        logs/extensions/datasets/grid-size-{N}/{extension}_v{version}_{timestamp}/
         
         Args:
             base_dir: Base logs directory (e.g., "logs/")
-            task_name: Task identifier (e.g., "extension", "llm")
+            task_name: Task identifier (e.g., "llm", "extension")
+            
+        Raises:
+            ValueError: If parameters are invalid (fail-fast)
         """
+        # Fail-fast: Validate inputs
+        if not base_dir or not isinstance(base_dir, str):
+            raise ValueError("[SSOT] Base directory must be non-empty string")
+        
+        if not task_name or not isinstance(task_name, str):
+            raise ValueError("[SSOT] Task name must be non-empty string")
+        
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_dir = os.path.join(base_dir, f"{task_name}_{timestamp}")
+        
+        # Task0 uses traditional logging structure
+        if task_name == "llm" or task_name.startswith("task"):
+            self.log_dir = os.path.join(base_dir, f"{task_name}_{timestamp}")
+        else:
+            # Extensions follow dataset folder standards
+            grid_size = getattr(self, 'grid_size', 10)
+            self.log_dir = os.path.join(
+                base_dir, "extensions", "datasets", 
+                f"grid-size-{grid_size}", f"{task_name}_{timestamp}"
+            )
         
         # Create directory with comprehensive error handling
         self.create_log_directory()
