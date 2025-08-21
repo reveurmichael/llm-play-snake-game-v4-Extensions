@@ -1172,7 +1172,31 @@ class GameManager(BaseGameManager):
     def __init__(
         self, args: "argparse.Namespace", agent: Optional[BaseAgent] = None
     ) -> None:
-        """Initialize LLM-specific session."""
+        """
+        Initialize LLM-specific session with fail-fast validation.
+        
+        Args:
+            args: Command line arguments namespace
+            agent: LLM agent for move generation
+            
+        Raises:
+            ValueError: If required arguments are missing (fail-fast)
+            TypeError: If arguments have wrong type (fail-fast)
+        """
+        # Fail-fast: Validate required arguments
+        if not args:
+            raise ValueError("[SSOT] Arguments namespace is required")
+        
+        if not hasattr(args, 'grid_size'):
+            raise ValueError("[SSOT] grid_size argument is required")
+        
+        if not hasattr(args, 'provider'):
+            raise ValueError("[SSOT] LLM provider argument is required")
+        
+        # Fail-fast: Validate argument types and values
+        if not isinstance(args.grid_size, int) or args.grid_size < 5 or args.grid_size > 50:
+            raise ValueError(f"[SSOT] Invalid grid_size: {args.grid_size}. Must be 5-50")
+        
         super().__init__(args)
 
         # LLM-specific counters and state

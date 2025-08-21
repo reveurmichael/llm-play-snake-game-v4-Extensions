@@ -20,20 +20,38 @@ class LLMClient:
     """Base class for LLM clients."""
 
     def __init__(self, provider: str = "hunyuan", model: str = None):
-        """Initialize the LLM client.
+        """
+        Initialize the LLM client with fail-fast validation.
 
         Args:
             provider: The LLM provider to use ("hunyuan", "ollama", "deepseek", or "mistral")
             model: The specific model to use with the provider
+            
+        Raises:
+            ValueError: If provider is invalid (fail-fast)
+            RuntimeError: If provider initialization fails (fail-fast)
         """
+        # Fail-fast: Validate provider
+        if not provider or not isinstance(provider, str):
+            raise ValueError("[SSOT] Provider must be non-empty string")
+        
+        valid_providers = ["hunyuan", "ollama", "deepseek", "mistral", "openai", "anthropic"]
+        if provider.lower() not in valid_providers:
+            raise ValueError(f"[SSOT] Invalid provider: {provider}. Valid: {valid_providers}")
+        
         self.provider = provider.lower()
         self.model = model
         self.last_token_count = None
         self.secondary_provider = None
         self.secondary_model = None
 
-        # Initialize primary provider
-        self._provider_instance = create_provider(self.provider)
+        # Initialize primary provider with fail-fast
+        try:
+            self._provider_instance = create_provider(self.provider)
+            if not self._provider_instance:
+                raise RuntimeError(f"[SSOT] Failed to create provider instance: {self.provider}")
+        except Exception as e:
+            raise RuntimeError(f"[SSOT] Provider initialization failed: {e}")
 
     def _extract_usage(self, raw_usage: dict) -> dict:
         """
