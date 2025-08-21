@@ -1,41 +1,36 @@
 """
-Supervised Learning Game Manager
-==============================
+Supervised Learning Game Manager v0.03
+======================================
 
-Session management for supervised learning models (MLP, LightGBM) trained on
-heuristic-generated datasets.
+Streamlined game manager for supervised learning that uses trained ML models
+through agent pattern for intelligent Snake game decision making.
+
+Key Features:
+- Agent-based architecture using trained models
+- JSON output generation (no JSONL needed)
+- CSV-based training data (from logs folder)
+- No explanations - direct move predictions
+- Performance tracking and analysis
 
 Design Philosophy:
-- Extends BaseGameManager with minimal code
-- Uses supervised learning models for move prediction
-- Leverages heuristics-generated datasets for training
-- Demonstrates clean inheritance from base classes
-
-Design Patterns:
-- Template Method: Inherits base session management structure
-- Factory Pattern: Uses SupervisedGameLogic for game logic
-- Strategy Pattern: Pluggable ML models (MLP, LightGBM)
+- Template Method Pattern: Inherits from BaseGameManager
+- Factory Pattern: Uses agent factory for model instantiation
+- Strategy Pattern: Pluggable ML agents (MLP, LightGBM)
+- Single Responsibility: Focused on supervised learning only
 """
 
 from __future__ import annotations
 import sys
-import os
 from pathlib import Path
 
-# Fix UTF-8 encoding issues on Windows
-os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+# Add project root to path for absolute imports
+project_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(project_root))
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
-# Ensure project root is set and properly configured
-from utils.path_utils import ensure_project_root
-ensure_project_root()
-
-import argparse
-import time
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+# Standard library imports
 import json
+import time
+from typing import Dict, Any, Optional, List
 
 # Import from project root using absolute imports
 from utils.print_utils import print_info, print_warning, print_success, print_error
@@ -44,184 +39,235 @@ from extensions.common import EXTENSIONS_LOGS_DIR
 
 # Import supervised-specific components
 from .game_logic import SupervisedGameLogic
-from .models import create_model
+from .agents import agent_factory
 
 
 class SupervisedGameManager(BaseGameManager):
     """
-    Multi-model session manager for supervised learning v0.03.
+    Supervised learning session manager using ML agents.
     
     Demonstrates clean inheritance from BaseGameManager with minimal
-    extension-specific code. Uses the template method pattern extensively.
+    extension-specific code focused on supervised learning.
     
     Design Patterns:
     - Template Method: Inherits base session management structure  
-    - Factory Pattern: Uses SupervisedGameLogic for game logic
-    - Strategy Pattern: Pluggable ML models (MLP, LightGBM)
+    - Factory Pattern: Uses agent factory for model instantiation
+    - Strategy Pattern: Pluggable ML agents (MLP, LightGBM)
     """
-
-    # Use supervised learning game logic
-    GAME_LOGIC_CLS = SupervisedGameLogic
-
-    def __init__(self, args: argparse.Namespace) -> None:
-        """Initialize supervised learning game manager.
+    
+    def __init__(self, config: Dict[str, Any]):
+        # Initialize base game manager
+        super().__init__(config)
         
-        Args:
-            args: Command line arguments namespace
-        """
-        super().__init__(args)
-
-        # Supervised learning specific attributes
-        self.model_type: str = getattr(args, "model", "MLP")
-        self.dataset_path: Optional[str] = getattr(args, "dataset", None)
-        self.model = None
-        self.verbose: bool = getattr(args, "verbose", False)
+        # Supervised learning specific configuration
+        self.agent_name = config.get("agent", "mlp")
+        self.model_path = config.get("model_path")
+        self.current_agent = None
         
-        # Supervised learning specific session data
+        # Performance tracking
         self.prediction_times: List[float] = []
         self.model_accuracy: float = 0.0
-
-        print_info(f"[SupervisedGameManager] Initialized for {self.model_type}")
-
-    def initialize(self) -> None:
-        """Initialize the supervised learning manager."""
-        # Setup logging directory
-        self._setup_logging()
+        self.total_predictions: int = 0
         
-        # Load and train model
-        self._setup_model()
-        
-        # Setup base game components
-        self.setup_game()
-        
-        # Configure game with model
-        if isinstance(self.game, SupervisedGameLogic) and self.model:
-            self.game.set_model(self.model)
-            # Ensure grid_size is set correctly
-            if hasattr(self.game.game_state, "grid_size"):
-                self.game.game_state.grid_size = self.args.grid_size
-
-        print_info(f"[SupervisedGameManager] Initialization complete for {self.model_type}")
-
-    def _setup_logging(self) -> None:
-        """Setup logging directory using streamlined base class approach."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        grid_size = getattr(self.args, "grid_size", 10)
-
-        # Follow standardized dataset folder structure
-        dataset_folder = f"supervised_v0.03_{timestamp}"
-        base_dir = os.path.join(
-            EXTENSIONS_LOGS_DIR, "datasets", f"grid-size-{grid_size}", dataset_folder
-        )
-
-        # Model-specific subdirectory
-        self.log_dir = os.path.join(base_dir, self.model_type.lower())
-
-        # Use base class directory creation with error handling
-        self.create_log_directory()
+        # Load agent
+        self._load_agent()
     
-    def _create_extension_subdirectories(self) -> None:
-        """Create supervised learning specific subdirectories."""
-        # Create subdirectories for organized ML data
-        subdirs = ["models", "predictions", "metrics"]
-        for subdir in subdirs:
-            try:
-                os.makedirs(os.path.join(self.log_dir, subdir), exist_ok=True)
-            except Exception:
-                pass  # Non-critical if subdirectories can't be created
-    
-    def _configure_controller(self) -> None:
-        """Configure the game controller for supervised learning specific needs."""
-        if self.game_controller:
-            # Add any ML-specific controller configuration here
-            pass
-
-    def _setup_model(self) -> None:
-        """Setup and train the supervised learning model."""
+    def _load_agent(self):
+        """Load the specified ML agent."""
         try:
-            # Create model using factory pattern
-            self.model = create_model(
-                model_type=self.model_type,
-                dataset_path=self.dataset_path,
-                verbose=self.verbose
+            self.current_agent = agent_factory.create_agent(
+                self.agent_name,
+                model_path=self.model_path
             )
             
-            # Train model if dataset is provided
-            if self.dataset_path:
-                print_info(f"[SupervisedGameManager] Training {self.model_type} model...")
-                self.model_accuracy = self.model.train()
-                print_success(f"[SupervisedGameManager] Model trained with accuracy: {self.model_accuracy:.3f}")
+            if self.current_agent and self.current_agent.is_loaded:
+                print_success(f"✅ Loaded {self.agent_name} agent successfully")
             else:
-                print_warning("[SupervisedGameManager] No dataset provided, using untrained model")
+                print_warning(f"⚠️ Agent {self.agent_name} loaded but model not available")
                 
         except Exception as e:
-            print_error(f"[SupervisedGameManager] Failed to setup model: {e}")
-            raise
-
-    def run(self) -> None:
-        """Run supervised learning session with streamlined base class management."""
-        # Use the fully streamlined base class approach
-        self.run_game_session()
+            print_error(f"Failed to load agent {self.agent_name}: {e}")
+            self.current_agent = None
     
-    def _display_session_start(self) -> None:
-        """Display ML-specific session start information."""
-        super()._display_session_start()
-        print_info(f"🧠 Model: {self.model_type}")
-        if self.model_accuracy > 0:
-            print_info(f"🎯 Model accuracy: {self.model_accuracy:.3f}")
-    
-    def _display_session_completion(self) -> None:
-        """Display ML-specific session completion."""
-        super()._display_session_completion()
-        print_success("✅ Supervised learning v0.03 execution completed!")
-
-
+    def _create_game_logic(self) -> SupervisedGameLogic:
+        """Create supervised learning game logic."""
+        return SupervisedGameLogic(
+            config=self.config,
+            agent=self.current_agent
+        )
     
     def _get_next_move(self, game_state: Dict[str, Any]) -> str:
-        """Get next move from supervised learning model."""
-        # Get move prediction from model with timing
-        prediction_start = time.time()
-        move = self.game.get_next_planned_move()
-        prediction_time = time.time() - prediction_start
+        """Get next move from ML agent."""
+        if not self.current_agent:
+            print_warning("No agent available, using fallback move")
+            return "UP"
+        
+        start_time = time.time()
+        move = self.current_agent.predict_move(game_state)
+        prediction_time = time.time() - start_time
+        
+        # Track performance
         self.prediction_times.append(prediction_time)
+        self.total_predictions += 1
         
         return move
     
-    def _validate_move_custom(self, move: str, game_state: Dict[str, Any]) -> bool:
-        """Validate move from supervised learning model."""
-        if move == "NO_PATH_FOUND" or not move:
-            print_warning(f"[SupervisedGameManager] Model returned invalid move: {move}")
-            self.game.game_state.record_game_end("NO_PATH_FOUND")
-            return False
-        return True
-
-    def _add_task_specific_game_data(self, game_data: Dict[str, Any], game_duration: float) -> None:
-        """Add supervised learning specific game data."""
-        game_data["model_type"] = self.model_type
-        game_data["model_accuracy"] = self.model_accuracy
-        game_data["avg_prediction_time"] = (
-            sum(self.prediction_times) / len(self.prediction_times) 
-            if self.prediction_times else 0.0
-        )
-
-    def _display_task_specific_results(self, game_duration: float) -> None:
-        """Display supervised learning specific results."""
-        if self.prediction_times:
-            avg_prediction_time = sum(self.prediction_times) / len(self.prediction_times)
-            print_info(f"🧠 Model: {self.model_type}, Avg prediction time: {avg_prediction_time:.4f}s")
-
-    def _add_task_specific_summary_data(self, summary: Dict[str, Any]) -> None:
-        """Add supervised learning specific data to session summary."""
-        summary["model_type"] = self.model_type
-        summary["model_accuracy"] = self.model_accuracy
-        summary["avg_prediction_time"] = (
-            sum(self.prediction_times) / len(self.prediction_times) 
-            if self.prediction_times else 0.0
-        )
-        summary["configuration"]["dataset_path"] = self.dataset_path
+    def _add_task_specific_game_data(self, game_data_dict: Dict[str, Any]) -> None:
+        """Add supervised learning specific data to game data."""
+        if self.current_agent:
+            # Add agent performance stats
+            agent_stats = self.current_agent.get_performance_stats()
+            game_data_dict["agent_stats"] = agent_stats
+            
+            # Add model information
+            if hasattr(self.current_agent, 'get_model_info'):
+                game_data_dict["model_info"] = self.current_agent.get_model_info()
+            
+            # Add prediction timing
+            if self.prediction_times:
+                game_data_dict["prediction_timing"] = {
+                    "average_prediction_time": sum(self.prediction_times) / len(self.prediction_times),
+                    "total_predictions": len(self.prediction_times),
+                    "min_prediction_time": min(self.prediction_times),
+                    "max_prediction_time": max(self.prediction_times)
+                }
     
-    def _display_task_specific_summary(self, summary: Dict[str, Any]) -> None:
-        """Display supervised learning specific summary information."""
-        print_info(f"🧠 Model: {self.model_type}")
-        print_info(f"🎯 Model accuracy: {self.model_accuracy:.3f}")
-        print_info(f"⚡ Avg prediction time: {summary['avg_prediction_time']:.4f}s")
+    def _display_task_specific_results(self, game_data_dict: Dict[str, Any]) -> None:
+        """Display supervised learning specific results."""
+        if not self.current_agent:
+            return
+        
+        agent_stats = self.current_agent.get_performance_stats()
+        
+        print_info("🧠 Supervised Learning Results:")
+        print_info(f"   Agent: {agent_stats['agent_name']}")
+        print_info(f"   Predictions: {agent_stats['predictions_made']}")
+        print_info(f"   Avg Prediction Time: {agent_stats['average_prediction_time']:.4f}s")
+        print_info(f"   Predictions/sec: {agent_stats['predictions_per_second']:.2f}")
+        
+        # Display model-specific information
+        if hasattr(self.current_agent, 'get_feature_importance'):
+            try:
+                importance = self.current_agent.get_feature_importance()
+                if importance:
+                    print_info("   Top Features:")
+                    sorted_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)
+                    for feature, score in sorted_features[:5]:
+                        print_info(f"     {feature}: {score:.3f}")
+            except Exception as e:
+                print_warning(f"Could not display feature importance: {e}")
+    
+    def _add_task_specific_summary_data(self, summary_data: Dict[str, Any]) -> None:
+        """Add supervised learning data to session summary."""
+        if self.current_agent:
+            # Add agent performance summary
+            agent_stats = self.current_agent.get_performance_stats()
+            summary_data["agent_performance"] = agent_stats
+            
+            # Add model information
+            if hasattr(self.current_agent, 'get_model_info'):
+                summary_data["model_info"] = self.current_agent.get_model_info()
+            
+            # Add session-level statistics
+            if self.prediction_times:
+                summary_data["session_prediction_stats"] = {
+                    "total_predictions": len(self.prediction_times),
+                    "average_prediction_time": sum(self.prediction_times) / len(self.prediction_times),
+                    "total_prediction_time": sum(self.prediction_times),
+                    "predictions_per_second": len(self.prediction_times) / sum(self.prediction_times) if self.prediction_times else 0
+                }
+    
+    def _display_task_specific_summary(self, summary_data: Dict[str, Any]) -> None:
+        """Display supervised learning session summary."""
+        print_info("🧠 Supervised Learning Session Summary:")
+        
+        if "agent_performance" in summary_data:
+            agent_perf = summary_data["agent_performance"]
+            print_info(f"   Agent: {agent_perf.get('agent_name', 'Unknown')}")
+            print_info(f"   Total Predictions: {agent_perf.get('predictions_made', 0)}")
+            print_info(f"   Average Prediction Time: {agent_perf.get('average_prediction_time', 0):.4f}s")
+            print_info(f"   Predictions per Second: {agent_perf.get('predictions_per_second', 0):.2f}")
+        
+        if "model_info" in summary_data:
+            model_info = summary_data["model_info"]
+            print_info(f"   Model Type: {model_info.get('model_type', 'Unknown')}")
+            print_info(f"   Framework: {model_info.get('framework', 'Unknown')}")
+            
+            if "total_parameters" in model_info:
+                params = model_info["total_parameters"]
+                print_info(f"   Parameters: {params:,}")
+    
+    def _create_extension_subdirectories(self, log_dir: Path) -> None:
+        """Create supervised learning specific subdirectories."""
+        # Create subdirectories for different agents
+        agents_dir = log_dir / "agents"
+        agents_dir.mkdir(exist_ok=True)
+        
+        # Create subdirectory for current agent
+        if self.current_agent:
+            agent_dir = agents_dir / self.current_agent.agent_name.lower()
+            agent_dir.mkdir(exist_ok=True)
+        
+        # Create models directory for storing trained models
+        models_dir = log_dir / "models"
+        models_dir.mkdir(exist_ok=True)
+        
+        # Create training data directory
+        training_dir = log_dir / "training_data"
+        training_dir.mkdir(exist_ok=True)
+    
+    def get_available_agents(self) -> Dict[str, str]:
+        """Get list of available agents."""
+        return agent_factory.list_available_agents()
+    
+    def switch_agent(self, agent_name: str, model_path: Optional[str] = None) -> bool:
+        """Switch to a different agent."""
+        try:
+            new_agent = agent_factory.create_agent(agent_name, model_path=model_path)
+            
+            if new_agent:
+                self.current_agent = new_agent
+                self.agent_name = agent_name
+                self.model_path = model_path
+                
+                # Update game logic with new agent
+                if hasattr(self, 'game_logic') and self.game_logic:
+                    self.game_logic.agent = new_agent
+                
+                print_success(f"✅ Switched to {agent_name} agent")
+                return True
+            else:
+                print_error(f"Failed to create {agent_name} agent")
+                return False
+                
+        except Exception as e:
+            print_error(f"Error switching to {agent_name}: {e}")
+            return False
+    
+    def export_agent_performance(self, output_path: str) -> bool:
+        """Export agent performance data to JSON."""
+        if not self.current_agent:
+            print_warning("No agent available for performance export")
+            return False
+        
+        try:
+            performance_data = {
+                "agent_info": self.current_agent.get_model_info() if hasattr(self.current_agent, 'get_model_info') else {},
+                "performance_stats": self.current_agent.get_performance_stats(),
+                "session_stats": {
+                    "total_predictions": len(self.prediction_times),
+                    "prediction_times": self.prediction_times,
+                    "model_accuracy": self.model_accuracy
+                },
+                "export_timestamp": time.time()
+            }
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(performance_data, f, indent=2, ensure_ascii=False)
+            
+            print_success(f"📊 Agent performance exported to {output_path}")
+            return True
+            
+        except Exception as e:
+            print_error(f"Failed to export agent performance: {e}")
+            return False
