@@ -19,7 +19,7 @@ benefits:
 1. **Head-less CI pipelines** – unit-tests can exercise the full planning &
    game-logic stack on platforms where SDL/pygame is unavailable.
 2. **Lower coupling / faster import time** – every non-visual extension
-   (heuristics, RL, dataset generation, …) remains free of the heavyweight
+   (extensions for various AI approaches) remains free of the heavyweight
    dependency.
 
 The pattern uses ``importlib.import_module("pygame")`` and stores the module
@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import os
 import importlib
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Dict, Any
 from collections import defaultdict
 
 from colorama import Fore
@@ -40,6 +40,7 @@ from colorama import Fore
 from core.game_logic import BaseGameLogic, GameLogic
 from core.game_loop import run_game_loop
 from config.ui_constants import TIME_DELAY, TIME_TICK
+from config.game_constants import MAX_STEPS_ALLOWED
 
 # LLM components - only for Task-0
 from llm.client import LLMClient
@@ -62,17 +63,14 @@ if TYPE_CHECKING:
 
 
 class BaseGameManager:
-    """Generic session manager for all Snake game tasks.
+    """
+    Universal session manager for all Snake Game AI tasks.
     
-    This class contains ONLY attributes and methods that are useful
-    across Tasks 1-5. No LLM-specific code, no legacy patterns.
+    Provides comprehensive infrastructure for game execution, session management,
+    statistics tracking, and file I/O. Extensions inherit and customize through
+    elegant hook methods.
     
-    Perfect for:
-    - Task-1 (Heuristics): BFS, A*, Hamiltonian cycles
-    - Task-2 (Supervised): Neural network training on game data  
-    - Task-3 (Reinforcement): DQN, PPO, actor-critic agents
-    - Task-4 (LLM Fine-tuning): Custom fine-tuned models
-    - Task-5 (Distillation): Model compression techniques
+    Supports: All extension types with minimal inheritance code
     """
 
     # Factory hook - subclasses specify their game logic type
@@ -82,21 +80,19 @@ class BaseGameManager:
         """Initialize generic session state for any task type."""
         self.args = args
 
-        # -------------------
-        # Core session metrics (used by ALL tasks)
-        # -------------------
+        # Core session metrics
         self.game_count: int = 0
         self.round_count: int = 1
         self.total_score: int = 0
         self.total_steps: int = 0
         self.total_rounds: int = 0
 
-        # Per-game data tracking
+        # Per-game tracking
         self.game_scores: List[int] = []
         self.round_counts: List[int] = []
         self.current_game_moves: List[str] = []
 
-        # Error tracking (generic across all algorithms)
+        # Error tracking
         self.valid_steps: int = 0
         self.invalid_reversals: int = 0
         self.consecutive_invalid_reversals: int = 0
@@ -104,86 +100,71 @@ class BaseGameManager:
         self.no_path_found_steps: int = 0
         self.last_no_path_found: bool = False
 
-        # -------------------
-        # Game state management (used by ALL tasks)
-        # -------------------
+        # Game limits management
+        from core.game_limits_manager import create_limits_manager
+        self.limits_manager = create_limits_manager(args)
+
+        # Game state management
         self.game: Optional[BaseGameLogic] = None
         self.game_active: bool = True
         self.need_new_plan: bool = True
         self.running: bool = True
-        self._first_plan: bool = True  # Track first planning cycle for round management
+        self._first_plan: bool = True
 
-        # -------------------
-        # Visualization & timing (used by ALL tasks)
-        # -------------------
+        # Game controller integration
+        self.game_controller: Optional["BaseGameController"] = None
+        self.controller_initialized: bool = False
+
+        # Visualization & timing
         self.use_gui: bool = not getattr(args, "no_gui", False)
         self.pause_between_moves: float = getattr(args, "pause_between_moves", 0.0)
         self.auto_advance: bool = getattr(args, "auto_advance", False)
 
-        # Lazy-load pygame ONLY when GUI is requested.
-        # This keeps head-less extensions (heuristics, RL, …) completely
-        # free of the heavyweight SDL dependency and avoids opening any
-        # graphical window when ``use_gui`` is False.
-
+        # Pygame lazy loading for GUI support
         self._pygame = None  # type: ignore[assignment]
 
         if self.use_gui:
             try:
-                # Import inside the branch so that *headless* runs never even
-                # attempt to import pygame.
                 self._pygame = importlib.import_module("pygame")
                 self.clock = self._pygame.time.Clock()  # type: ignore[attr-defined]
                 self.time_delay = TIME_DELAY
                 self.time_tick = TIME_TICK
-            except ModuleNotFoundError as exc:  # pragma: no cover – dev machines without pygame
+            except ModuleNotFoundError as exc:
                 raise RuntimeError(
-                    "GUI mode requested but pygame is not installed. "
-                    "Install it or re-run with --no-gui."
+                    "GUI mode requested but pygame not installed. Use --no-gui or install pygame."
                 ) from exc
         else:
-            # Headless – initialise dummies so the rest of the code can rely on them.
             self.clock = None
             self.time_delay = 0
             self.time_tick = 0
 
-        # -------------------
-        # Logging infrastructure (used by ALL tasks)
-        # -------------------
+        # Logging and session management
         self.log_dir: Optional[str] = None
+        self.session_start_time: Optional["datetime"] = None
+        self.game_steps: List[int] = []
 
-    # -------------------
-    # CORE LIFECYCLE METHODS - All tasks implement these
-    # -------------------
-
+    # Core lifecycle methods
+    
     def initialize(self) -> None:
-        """Initialize the task-specific components.
-        
-        Override in subclasses to set up:
-        - Logging directories
-        - Models/algorithms  
-        - Dataset connections
-        - Agent configurations
-        """
+        """Initialize task-specific components. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement initialize()")
 
     def run(self) -> None:
-        """Execute the main task workflow.
-        
-        Override in subclasses to implement:
-        - Training loops (RL, Supervised)
-        - Evaluation protocols (Heuristics)  
-        - Fine-tuning pipelines (LLM tasks)
-        """
+        """Execute main task workflow. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement run()")
 
-    # -------------------
-    # GENERIC GAME SETUP - Reusable across all tasks
-    # -------------------
+    # Game setup methods
 
     def setup_game(self) -> None:
-        """Create game logic and optional GUI interface."""
-        # Use the specified game logic class (BaseGameLogic by default)
-        self.game = self.GAME_LOGIC_CLS(use_gui=self.use_gui)
+        """Create game logic and optional GUI interface with automatic controller integration."""
+        # Get grid size from args if available
+        grid_size = getattr(self.args, "grid_size", 10)
+        
+        # Use the specified game logic class with correct grid size
+        self.game = self.GAME_LOGIC_CLS(grid_size=grid_size, use_gui=self.use_gui)
+
+        # Setup game controller integration
+        self._setup_game_controller()
 
         # Attach GUI if visual mode is requested
         if self.use_gui:
@@ -194,6 +175,62 @@ class BaseGameManager:
             if hasattr(self.game, "grid_size"):
                 gui.resize(self.game.grid_size)  # auto-adjust cell size & grid lines
             self.game.set_gui(gui)
+    
+    def _setup_game_controller(self) -> None:
+        """Setup game controller integration for consistent game management.
+        
+        This method creates and configures the appropriate game controller
+        based on the extension type and requirements.
+        """
+        # Create appropriate controller based on GUI requirements
+        if self.use_gui:
+            self._create_gui_controller()
+        else:
+            self._create_headless_controller()
+        
+        # Initialize controller if created
+        if self.game_controller:
+            self._initialize_controller()
+    
+    def _create_gui_controller(self) -> None:
+        """Create GUI-based game controller."""
+        try:
+            from core.game_controller import CLIGameController
+            self.game_controller = CLIGameController(self, use_gui=True)
+        except ImportError:
+            # Fallback to headless if GUI components not available
+            self._create_headless_controller()
+    
+    def _create_headless_controller(self) -> None:
+        """Create headless game controller."""
+        try:
+            from core.game_controller import CLIGameController
+            self.game_controller = CLIGameController(self, use_gui=False)
+        except ImportError:
+            # Controller is optional - extensions can work without it
+            self.game_controller = None
+    
+    def _initialize_controller(self) -> None:
+        """Initialize the game controller with extension-specific configuration."""
+        if not self.game_controller:
+            return
+        
+        try:
+            # Hook for extensions to customize controller initialization
+            self._configure_controller()
+            self.controller_initialized = True
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Controller initialization failed: {e}")
+            self.game_controller = None
+    
+    def _configure_controller(self) -> None:
+        """Hook for extensions to configure the game controller.
+        
+        Override in subclasses to add extension-specific controller configuration.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
 
     def get_pause_between_moves(self) -> float:
         """Get pause duration between moves.
@@ -204,15 +241,13 @@ class BaseGameManager:
         return self.pause_between_moves if self.use_gui else 0.0
 
 
-    # -------------------
-    # ROUND MANAGEMENT - Generic for all planning-based tasks
-    # -------------------
+    # Round management methods
 
     def start_new_round(self, reason: str = "") -> None:
         """Begin a new planning round.
         
         All tasks use rounds to track planning cycles:
-        - Heuristics: Each path-finding attempt
+        - Extensions: Each algorithm execution
         - RL: Each action selection
         - LLM: Each prompt/response cycle
         """
@@ -305,44 +340,857 @@ class BaseGameManager:
             # Lightweight marker; keeps console noise minimal during large runs.
             print(Fore.BLUE + f"📁 Round {self.round_count} finished")
 
-    # -------------------
-    # LOGGING INFRASTRUCTURE - Used by all tasks
-    # -------------------
+    # Logging infrastructure
 
     def setup_logging(self, base_dir: str, task_name: str) -> None:
-        """Set up logging directory structure.
+        """
+        Set up logging directory structure following dataset folder standards.
+        
+        For Task0 (LLM), creates standard logging structure:
+        logs/{task_name}_{timestamp}/
+        
+        For extensions, follows dataset standards:
+        logs/extensions/datasets/grid-size-{N}/{extension}_v{version}_{timestamp}/
         
         Args:
             base_dir: Base logs directory (e.g., "logs/")
-            task_name: Task identifier (e.g., "heuristics", "rl", "llm")
+            task_name: Task identifier (e.g., "llm", "extension")
+            
+        Raises:
+            ValueError: If parameters are invalid (fail-fast)
         """
+        # Fail-fast: Validate inputs
+        if not base_dir or not isinstance(base_dir, str):
+            raise ValueError("[SSOT] Base directory must be non-empty string")
+        
+        if not task_name or not isinstance(task_name, str):
+            raise ValueError("[SSOT] Task name must be non-empty string")
+        
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_dir = os.path.join(base_dir, f"{task_name}_{timestamp}")
-        os.makedirs(self.log_dir, exist_ok=True)
+        
+        # Task0 uses traditional logging structure
+        if task_name == "llm" or task_name.startswith("task"):
+            self.log_dir = os.path.join(base_dir, f"{task_name}_{timestamp}")
+        else:
+            # Extensions follow dataset folder standards
+            grid_size = getattr(self, 'grid_size', 10)
+            self.log_dir = os.path.join(
+                base_dir, "extensions", "datasets", 
+                f"grid-size-{grid_size}", f"{task_name}_{timestamp}"
+            )
+        
+        # Create directory with comprehensive error handling
+        self.create_log_directory()
+    
+    def create_log_directory(self) -> bool:
+        """Create log directory with comprehensive error handling.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.log_dir:
+            return False
+        
+        try:
+            os.makedirs(self.log_dir, exist_ok=True)
+            
+            # Create standard subdirectories for extensions
+            self._create_standard_subdirectories()
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to create log directory {self.log_dir}: {e}")
+            self.log_dir = None
+            return False
+    
+    def _create_standard_subdirectories(self) -> None:
+        """Create standard subdirectories for organized logging.
+        
+        Extensions can override this to create custom subdirectories.
+        """
+        # Hook for extensions to create custom subdirectories
+        self._create_extension_subdirectories()
+    
+    def _create_extension_subdirectories(self) -> None:
+        """Hook for extensions to create custom subdirectories.
+        
+        Override in subclasses to create extension-specific directories.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def get_log_file_path(self, filename: str, subdirectory: str = "") -> str:
+        """Get full path for a log file with optional subdirectory.
+        
+        Args:
+            filename: Name of the log file
+            subdirectory: Optional subdirectory within log_dir
+            
+        Returns:
+            Full path to the log file
+        """
+        if not self.log_dir:
+            return filename
+        
+        if subdirectory:
+            full_dir = os.path.join(self.log_dir, subdirectory)
+            os.makedirs(full_dir, exist_ok=True)
+            return os.path.join(full_dir, filename)
+        else:
+            return os.path.join(self.log_dir, filename)
+    
+    def save_text_file(self, content: str, filename: str, description: str = "Text file", subdirectory: str = "") -> bool:
+        """Save text content to file with comprehensive error handling.
+        
+        Args:
+            content: Text content to save
+            filename: Name of the file to save
+            description: Description for logging purposes
+            subdirectory: Optional subdirectory within log_dir
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            file_path = self.get_log_file_path(filename, subdirectory)
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to save {description} to {filename}: {e}")
+            return False
 
     def save_session_summary(self) -> None:
-        """Save session-level statistics to JSON."""
-        if self.log_dir:
-            stats_manager = GameStatsManager()
-            stats_manager.save_session_stats(self.log_dir)
+        """Save comprehensive session summary with extension customization."""
+        if not self.log_dir:
+            return
+            
+        # Generate comprehensive session summary
+        summary = self.generate_session_summary()
+        
+        # Save to file
+        self.save_session_summary_to_file(summary)
+        
+        # Display to console
+        self.display_session_summary(summary)
+    
+    def generate_session_summary(self) -> Dict[str, Any]:
+        """Generate comprehensive session summary with extension hooks.
+        
+        Returns:
+            Dictionary containing session summary data
+        """
+        from datetime import datetime
+        
+        # Calculate session duration
+        session_duration = 0.0
+        if hasattr(self, 'session_start_time'):
+            session_duration = (datetime.now() - self.session_start_time).total_seconds()
+        
+        # Calculate derived statistics
+        total_steps = sum(getattr(self, 'game_steps', []))
+        total_rounds = sum(getattr(self, 'round_counts', []))
+        
+        # Base session summary structure
+        summary = {
+            "session_timestamp": getattr(self, 'session_start_time', datetime.now()).strftime("%Y%m%d_%H%M%S"),
+            "total_games": len(self.game_scores),
+            "total_score": self.total_score,
+            "average_score": self.total_score / len(self.game_scores) if self.game_scores else 0.0,
+            "total_steps": total_steps,
+            "total_rounds": total_rounds,
+            "session_duration_seconds": round(session_duration, 2),
+            "score_per_step": self.total_score / total_steps if total_steps > 0 else 0.0,
+            "score_per_round": self.total_score / total_rounds if total_rounds > 0 else 0.0,
+            "game_scores": self.game_scores,
+            "game_steps": getattr(self, 'game_steps', []),
+            "round_counts": self.round_counts,
+            "configuration": self._get_base_configuration(),
+        }
+        
+        # Hook for extensions to add task-specific summary data
+        self._add_task_specific_summary_data(summary)
+        
+        return summary
+    
+    def _get_base_configuration(self) -> Dict[str, Any]:
+        """Get base configuration data for session summary.
+        
+        Returns:
+            Dictionary containing base configuration
+        """
+        return {
+            "grid_size": getattr(self.args, "grid_size", 10),
+            "max_games": getattr(self.args, "max_games", 1),
+            "max_steps": getattr(self.args, "max_steps", 1000),
+            "use_gui": not getattr(self.args, "no_gui", False),
+            "verbose": getattr(self.args, "verbose", False),
+        }
+    
+    def _add_task_specific_summary_data(self, summary: Dict[str, Any]) -> None:
+        """Hook for extensions to add task-specific summary data.
+        
+        Override in subclasses to add extension-specific fields to session summary.
+        
+        Args:
+            summary: Session summary dictionary to modify
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def save_session_summary_to_file(self, summary: Dict[str, Any]) -> None:
+        """Save session summary to JSON file with comprehensive error handling.
+        
+        Args:
+            summary: Session summary dictionary to save
+        """
+        self.save_json_file(summary, "summary.json", "Session summary")
+    
+    def save_json_file(self, data: Dict[str, Any], filename: str, description: str = "Data") -> bool:
+        """Save any dictionary to JSON file with comprehensive error handling.
+        
+        This method provides a unified way to save JSON files across all extensions
+        with consistent formatting, encoding, and error handling.
+        
+        Args:
+            data: Dictionary to save
+            filename: Name of the file to save
+            description: Description for logging purposes
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.log_dir:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Cannot save {description}: no log directory")
+            return False
+        
+        try:
+            import json
+            from extensions.common.utils.game_state_utils import to_serializable
+            
+            # Ensure data is serializable
+            serializable_data = to_serializable(data)
+            
+            # Create full file path
+            file_path = os.path.join(self.log_dir, filename)
+            
+            # Save with consistent formatting
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(serializable_data, f, indent=2, ensure_ascii=False)
+            
+            return True
+            
+        except Exception as e:
+            from utils.print_utils import print_error
+            print_error(f"[BaseGameManager] Failed to save {description} to {filename}: {e}")
+            return False
+    
+    def load_json_file(self, filename: str, description: str = "Data") -> Optional[Dict[str, Any]]:
+        """Load JSON file with comprehensive error handling.
+        
+        Args:
+            filename: Name of the file to load
+            description: Description for logging purposes
+            
+        Returns:
+            Loaded dictionary or None if failed
+        """
+        if not self.log_dir:
+            return None
+            
+        try:
+            import json
+            
+            file_path = os.path.join(self.log_dir, filename)
+            
+            if not os.path.exists(file_path):
+                return None
+            
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+                
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Failed to load {description} from {filename}: {e}")
+            return None
+    
+    def display_session_summary(self, summary: Dict[str, Any]) -> None:
+        """Display session summary to console.
+        
+        Args:
+            summary: Session summary dictionary to display
+        """
+        from utils.print_utils import print_info, print_success
+        
+        print_success("📊 Session Summary")
+        print_info("=" * 50)
+        print_info(f"🎮 Total games: {summary['total_games']}")
+        print_info(f"🏆 Total score: {summary['total_score']}")
+        print_info(f"📈 Average score: {summary['average_score']:.1f}")
+        print_info(f"👣 Total steps: {summary['total_steps']}")
+        print_info(f"🔄 Total rounds: {summary['total_rounds']}")
+        print_info(f"⏱️  Session duration: {summary['session_duration_seconds']:.1f}s")
+        print_info(f"⚡ Score per step: {summary['score_per_step']:.3f}")
+        print_info(f"🎯 Score per round: {summary['score_per_round']:.3f}")
+        
+        # Hook for extensions to add task-specific display
+        self._display_task_specific_summary(summary)
+        
+        print_info("=" * 50)
+    
+    def _display_task_specific_summary(self, summary: Dict[str, Any]) -> None:
+        """Hook for extensions to display task-specific summary information.
+        
+        Override in subclasses to add extension-specific summary display.
+        
+        Args:
+            summary: Session summary dictionary
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def start_session(self) -> None:
+        """Initialize session tracking and logging.
+        
+        Call this at the beginning of any extension's run() method.
+        """
+        from datetime import datetime
+        
+        if not self.session_start_time:
+            self.session_start_time = datetime.now()
+        
+        # Hook for extensions to add session initialization
+        self._initialize_session()
+    
+    def _initialize_session(self) -> None:
+        """Hook for extensions to initialize session-specific data.
+        
+        Override in subclasses to add extension-specific session initialization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def end_session(self) -> None:
+        """Finalize session and generate summary.
+        
+        Call this at the end of any extension's run() method.
+        """
+        # Save comprehensive session summary
+        self.save_session_summary()
+        
+        # Hook for extensions to add session cleanup
+        self._finalize_session()
+    
+    def _finalize_session(self) -> None:
+        """Hook for extensions to finalize session-specific data.
+        
+        Override in subclasses to add extension-specific session cleanup.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def track_game_completion(self, game_steps: int) -> None:
+        """Track completion of a single game.
+        
+        Args:
+            game_steps: Number of steps taken in the completed game
+        """
+        self.game_steps.append(game_steps)
+
+    # Game data management
+
+    def generate_game_data(self, game_duration: float) -> Dict[str, Any]:
+        """Generate game data for logging and dataset generation.
+        
+        This method provides a base implementation that extensions can override
+        to add task-specific data while maintaining consistency.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+            
+        Returns:
+            Dictionary containing game data
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            raise RuntimeError("Game not initialized or missing game_state")
+            
+        # Get base game summary from game state
+        game_data = self.game.game_state.generate_game_summary()
+        
+        # Add common metadata
+        game_data["game_number"] = self.game_count
+        game_data["duration_seconds"] = round(game_duration, 2)
+        
+        # Hook for extensions to add task-specific data
+        self._add_task_specific_game_data(game_data, game_duration)
+        
+        return game_data
+    
+    def _add_task_specific_game_data(self, game_data: Dict[str, Any], game_duration: float) -> None:
+        """Hook for extensions to add task-specific game data.
+        
+        Override in subclasses to add extension-specific fields to game data.
+        
+        Args:
+            game_data: Game data dictionary to modify
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def save_game_data(self, game_data: Dict[str, Any]) -> None:
+        """Save individual game data to JSON file.
+        
+        Args:
+            game_data: Dictionary containing game data to save
+        """
+        # Use game_count for consistent numbering (games start at 1)
+        filename = f"game_{self.game_count}.json"
+        description = f"Game {self.game_count} data"
+        self.save_json_file(game_data, filename, description)
+
+    def display_game_results(self, game_duration: float) -> None:
+        """Display game results to console.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return
+            
+        from utils.print_utils import print_info
+        
+        print_info(
+            f"📊 Score: {self.game.game_state.score}, "
+            f"Steps: {self.game.game_state.steps}, "
+            f"Duration: {game_duration:.2f}s"
+        )
+        
+        # Hook for extensions to add task-specific display
+        self._display_task_specific_results(game_duration)
+    
+    def _display_task_specific_results(self, game_duration: float) -> None:
+        """Hook for extensions to display task-specific results.
+        
+        Override in subclasses to add extension-specific result display.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def determine_game_end_reason(self) -> str:
+        """Determine why the game ended using uniform END_REASON_MAP.
+        
+        Returns:
+            Canonical end reason key from END_REASON_MAP
+        """
+        from config.game_constants import END_REASON_MAP
+        
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return "UNKNOWN"
+            
+        game_state = self.game.game_state
+        
+        # Check if game state has explicit end reason
+        if hasattr(game_state, "game_end_reason") and game_state.game_end_reason:
+            raw_reason = game_state.game_end_reason
+        else:
+            # Fallback logic based on game state
+            if game_state.steps >= getattr(game_state, 'max_steps', MAX_STEPS_ALLOWED):
+                raw_reason = "MAX_STEPS_REACHED"
+            elif hasattr(game_state, 'max_score') and game_state.score >= game_state.max_score:
+                raw_reason = "MAX_SCORE_REACHED"
+            else:
+                raw_reason = "UNKNOWN"
+        
+        # Validate against END_REASON_MAP
+        if raw_reason not in END_REASON_MAP:
+            from utils.print_utils import print_warning
+            print_warning(f"Unknown end reason '{raw_reason}', defaulting to 'UNKNOWN'")
+            return "UNKNOWN"
+            
+        return raw_reason
+
+    def finalize_game(self, game_duration: float) -> None:
+        """Finalize game processing including data generation and saving.
+        
+        This method provides a complete workflow for game finalization that
+        extensions can use or override as needed.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Increment game count
+        self.game_count += 1
+        
+        # Set game number in game state for consistency
+        if self.game and hasattr(self.game, 'game_state'):
+            self.game.game_state.game_number = self.game_count
+        
+        # Generate and save game data
+        game_data = self.generate_game_data(game_duration)
+        self.save_game_data(game_data)
+        
+        # Update session statistics
+        self.update_session_stats(game_duration)
+        
+        # Hook for extensions to add custom finalization
+        self._finalize_task_specific(game_data, game_duration)
+    
+    def _finalize_task_specific(self, game_data: Dict[str, Any], game_duration: float) -> None:
+        """Hook for extensions to add task-specific finalization.
+        
+        Override in subclasses to add extension-specific finalization logic.
+        
+        Args:
+            game_data: Generated game data
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def update_session_stats(self, game_duration: float) -> None:
+        """Update session-level statistics.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        if not self.game or not hasattr(self.game, 'game_state'):
+            return
+            
+        # Update core statistics
+        self.total_score += self.game.game_state.score
+        self.total_steps += self.game.game_state.steps
+        self.total_rounds += self.round_count
+        
+        # Update per-game tracking
+        self.game_scores.append(self.game.game_state.score)
+        self.round_counts.append(self.round_count)
+        
+        # Track game completion for session management
+        self.track_game_completion(self.game.game_state.steps)
+        
+        # Hook for extensions to add custom stats
+        self._update_task_specific_stats(game_duration)
+    
+    def _update_task_specific_stats(self, game_duration: float) -> None:
+        """Hook for extensions to update task-specific statistics.
+        
+        Override in subclasses to add extension-specific statistics.
+        
+        Args:
+            game_duration: Duration of the game in seconds
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    # Comprehensive rounds management
+
+    def _initialize_game_rounds(self) -> None:
+        """Initialize rounds tracking for the current game.
+        
+        This method sets up round management and prepares for round-by-round tracking.
+        """
+        # Reset round counter for new game
+        self.round_count = 1
+        
+        # Hook for extensions to initialize game-specific rounds data
+        self._initialize_game_specific_rounds()
+    
+    def _initialize_game_specific_rounds(self) -> None:
+        """Hook for extensions to initialize game-specific rounds data.
+        
+        Override in subclasses to add extension-specific rounds initialization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def _finalize_game_rounds(self) -> None:
+        """Finalize rounds tracking for the completed game.
+        
+        This method ensures all round data is properly saved and synchronized.
+        """
+        # Ensure final round data is flushed
+        if self.game and hasattr(self.game, 'game_state') and hasattr(self.game.game_state, 'round_manager'):
+            self.game.game_state.round_manager.flush_buffer()
+            self.game.game_state.round_manager.sync_round_data()
+        
+        # Hook for extensions to finalize game-specific rounds data
+        self._finalize_game_specific_rounds()
+    
+    def _finalize_game_specific_rounds(self) -> None:
+        """Hook for extensions to finalize game-specific rounds data.
+        
+        Override in subclasses to add extension-specific rounds finalization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def execute_game_step(self, step_description: str = "") -> bool:
+        """Execute a single game step with automatic rounds management.
+        
+        This method provides a template for executing individual game steps
+        with automatic round tracking and state management.
+        
+        Args:
+            step_description: Optional description of the step being executed
+            
+        Returns:
+            True if game should continue, False if game should end
+        """
+        # Check if game is over
+        if not self.game or self.game.game_over:
+            return False
+        
+        # Start new round for this step
+        self.start_new_round(step_description or f"Step {self.round_count}")
+        
+        # Get current game state
+        game_state = self.game.get_state_snapshot()
+        
+        # Hook for extensions to process game state before move
+        processed_state = self._process_game_state_before_move(game_state)
+        
+        # Get move decision from extension
+        move = self._get_next_move(processed_state)
+        
+        # Validate move
+        if not self._validate_move(move, processed_state):
+            return False
+        
+        # Apply move
+        try:
+            self.game.make_move(move)
+        except Exception as e:
+            from utils.print_utils import print_warning
+            print_warning(f"[BaseGameManager] Move application failed: {e}")
+            return False
+        
+        # Update display if GUI is enabled
+        if hasattr(self.game, "update_display"):
+            self.game.update_display()
+        
+        # Hook for extensions to process game state after move
+        self._process_game_state_after_move(self.game.get_state_snapshot())
+        
+        # Check game limits
+        if self._should_end_game():
+            return False
+        
+        return True
+    
+    def _process_game_state_before_move(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
+        """Hook for extensions to process game state before move decision.
+        
+        Args:
+            game_state: Current game state dictionary
+            
+        Returns:
+            Processed game state dictionary
+        """
+        # Base implementation returns state unchanged
+        return game_state
+    
+    def _get_next_move(self, game_state: Dict[str, Any]) -> str:
+        """Hook for extensions to determine the next move.
+        
+        Extensions must override this method to implement their move decision logic.
+        
+        Args:
+            game_state: Current game state dictionary
+            
+        Returns:
+            Next move as string (UP, DOWN, LEFT, RIGHT)
+        """
+        raise NotImplementedError("Subclasses must implement _get_next_move()")
+    
+    def _validate_move(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Validate the proposed move against the current game state.
+        
+        Args:
+            move: Proposed move
+            game_state: Current game state
+            
+        Returns:
+            True if move is valid, False otherwise
+        """
+        # Check for invalid moves
+        if move in ["NO_PATH_FOUND", "INVALID", None, ""]:
+            return False
+        
+        # Hook for extensions to add custom validation
+        return self._validate_move_custom(move, game_state)
+    
+    def _validate_move_custom(self, move: str, game_state: Dict[str, Any]) -> bool:
+        """Hook for extensions to add custom move validation.
+        
+        Args:
+            move: Proposed move
+            game_state: Current game state
+            
+        Returns:
+            True if move is valid, False otherwise
+        """
+        # Base implementation accepts all non-invalid moves
+        return True
+    
+    def _process_game_state_after_move(self, game_state: Dict[str, Any]) -> None:
+        """Hook for extensions to process game state after move is applied.
+        
+        Args:
+            game_state: Game state after move application
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def _should_end_game(self) -> bool:
+        """Check if the game should end based on various conditions.
+        
+        Returns:
+            True if game should end, False otherwise
+        """
+        # Check basic game over condition
+        if self.game and self.game.game_over:
+            return True
+        
+        # Check limits using limits manager
+        if hasattr(self, 'limits_manager') and self.limits_manager:
+            steps = getattr(self.game.game_state, 'steps', 0) if self.game else 0
+            if self.limits_manager.should_end_game(steps, "MAX_STEPS"):
+                if self.game:
+                    self.game.game_state.record_game_end("MAX_STEPS_REACHED")
+                return True
+        
+        # Hook for extensions to add custom end conditions
+        return self._should_end_game_custom()
+    
+    def _should_end_game_custom(self) -> bool:
+        """Hook for extensions to add custom game end conditions.
+        
+        Returns:
+            True if game should end based on extension-specific conditions
+        """
+        # Base implementation doesn't add any conditions
+        return False
+
+    def run_single_game(self) -> float:
+        """Run a single game and return its duration.
+        
+        This method provides a comprehensive template for running individual games
+        with automatic rounds management and state tracking.
+        
+        Returns:
+            Duration of the game in seconds
+        """
+        import time
+        
+        start_time = time.time()
+        
+        # Initialize game
+        if self.game:
+            self.game.reset()
+        
+        # Initialize rounds tracking
+        self._initialize_game_rounds()
+        
+        # Template method - extensions implement game-specific logic
+        self._execute_game_loop()
+        
+        # Finalize rounds tracking
+        self._finalize_game_rounds()
+        
+        return time.time() - start_time
+    
+    def _execute_game_loop(self) -> None:
+        """Execute the main game loop.
+        
+        Extensions can override this method to implement custom game loops,
+        or use the default step-by-step execution with _get_next_move().
+        """
+        # Default implementation: step-by-step execution
+        while self.execute_game_step():
+            pass  # Continue until game ends
+
+    def run_game_session(self) -> None:
+        """Run a complete game session with automatic session management.
+        
+        This method provides a complete template for running game sessions
+        that extensions can use with minimal customization.
+        """
+        # Start session tracking
+        self.start_session()
+        
+        # Display session start information
+        self._display_session_start()
+        
+        # Run games
+        for game_id in range(1, self.args.max_games + 1):
+            from utils.print_utils import print_info
+            print_info(f"🎮 Game {game_id}")
+            
+            # Run single game
+            game_duration = self.run_single_game()
+            
+            # Finalize game
+            self.finalize_game(game_duration)
+            
+            # Display results
+            self.display_game_results(game_duration)
+            
+            # Add spacer between games
+            if game_id < self.args.max_games:
+                print_info("")
+        
+        # End session
+        self.end_session()
+        
+        # Display completion message
+        self._display_session_completion()
+    
+    def _display_session_start(self) -> None:
+        """Display session start information.
+        
+        Extensions can override this to customize session start display.
+        """
+        from utils.print_utils import print_success, print_info
+        
+        extension_name = self.__class__.__name__.replace("GameManager", "")
+        print_success(f"✅ 🚀 Starting {extension_name} session...")
+        print_info(f"📊 Target games: {self.args.max_games}")
+        print_info("")
+    
+    def _display_session_completion(self) -> None:
+        """Display session completion information.
+        
+        Extensions can override this to customize session completion display.
+        """
+        from utils.print_utils import print_success, print_info
+        
+        extension_name = self.__class__.__name__.replace("GameManager", "")
+        print_success(f"✅ ✅ {extension_name} session completed!")
+        if hasattr(self, "log_dir") and self.log_dir:
+            print_info(f"📂 Logs: {self.log_dir}")
 
 
-# -------------------
-# TASK-0 SPECIFIC CLASS - LLM Snake Game
-# -------------------
+    # Task-0 LLM Game Manager
 
 
 class GameManager(BaseGameManager):
-    """LLM-powered Snake game manager (Task-0).
+    """
+    LLM-powered Snake game manager for Task-0.
     
-    Extends BaseGameManager with LLM-specific functionality:
-    - Language model clients
-    - Prompt/response logging  
-    - Token usage tracking
-    - LLM-specific error handling
-    
-    This is the ONLY class that should import LLM modules.
+    Extends BaseGameManager with language model integration, prompt/response
+    logging, token tracking, and LLM-specific error handling.
     """
 
     # Use LLM-capable game logic
@@ -351,18 +1199,34 @@ class GameManager(BaseGameManager):
     def __init__(
         self, args: "argparse.Namespace", agent: Optional[BaseAgent] = None
     ) -> None:
-        """Initialize LLM-specific session."""
+        """
+        Initialize LLM-specific session with fail-fast validation.
+        
+        Args:
+            args: Command line arguments namespace
+            agent: LLM agent for move generation
+            
+        Raises:
+            ValueError: If required arguments are missing (fail-fast)
+            TypeError: If arguments have wrong type (fail-fast)
+        """
+        # Fail-fast: Validate required arguments
+        if not args:
+            raise ValueError("[SSOT] Arguments namespace is required")
+        
+        if not hasattr(args, 'grid_size'):
+            raise ValueError("[SSOT] grid_size argument is required")
+        
+        if not hasattr(args, 'provider'):
+            raise ValueError("[SSOT] LLM provider argument is required")
+        
+        # Fail-fast: Validate argument types and values
+        if not isinstance(args.grid_size, int) or args.grid_size < 5 or args.grid_size > 50:
+            raise ValueError(f"[SSOT] Invalid grid_size: {args.grid_size}. Must be 5-50")
+        
         super().__init__(args)
 
-        # -------------------
-        # Elegant Consecutive Limits Management System
-        # -------------------
-        from core.game_limits_manager import create_limits_manager
-        self.limits_manager = create_limits_manager(args)
-
-        # -------------------
         # LLM-specific counters and state
-        # -------------------
         self.empty_steps: int = 0
         self.something_is_wrong_steps: int = 0
         self.consecutive_empty_steps: int = 0
@@ -370,24 +1234,20 @@ class GameManager(BaseGameManager):
         self.awaiting_plan: bool = False
         self.skip_empty_this_tick: bool = False
 
-        # -------------------
         # LLM performance tracking
-        # -------------------
         self.time_stats: defaultdict[str, int] = defaultdict(int)
         self.token_stats: dict[str, defaultdict[str, int]] = {
             "primary": defaultdict(int),
             "secondary": defaultdict(int),
         }
 
-        # -------------------
         # LLM infrastructure
-        # -------------------
         self.llm_client: Optional[LLMClient] = None
         self.parser_provider: Optional[str] = None
         self.parser_model: Optional[str] = None
         self.agent: Optional[BaseAgent] = agent
 
-        # LLM-specific logging directories
+        # LLM-specific logging
         self.prompts_dir: Optional[str] = None
         self.responses_dir: Optional[str] = None
 
@@ -475,9 +1335,7 @@ class GameManager(BaseGameManager):
         helper.report_final_statistics(stats_info)
         self.running = False
 
-    # -------------------
-    # CONTINUATION SUPPORT - LLM-specific feature
-    # -------------------
+    # Continuation support
 
     def continue_from_session(self, log_dir: str, start_game_number: int) -> None:
         """Resume LLM session from previous checkpoint."""

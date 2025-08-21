@@ -1,16 +1,15 @@
 """
-Heuristic Game Data - Data tracking for heuristic algorithms
-----------------
+Heuristic Game Data v0.04
+=========================
 
-This module extends BaseGameData to add heuristic-specific tracking
-while maintaining compatibility with the base game data structure.
+Elegant data tracking for heuristic algorithms with comprehensive state
+management and dataset generation capabilities.
 
-Design Philosophy:
-- Extends BaseGameData (inherits all generic game state)
-- Adds heuristic-specific metrics (algorithm name, path calculations)
-- Maintains same JSON output format as Task-0 for compatibility
-- Uses BaseGameStatistics instead of LLM-specific GameStatistics
-- Custom TimeStats without LLM pollution
+Key Features:
+- Extends BaseGameData with heuristic-specific metrics
+- Algorithm tracking and performance statistics
+- Robust state validation and error handling
+- Clean JSON output compatible with Task-0 format
 """
 from __future__ import annotations
 
@@ -33,11 +32,7 @@ from game_rounds import HeuristicRoundManager
 
 @dataclass
 class HeuristicTimeStats:
-    """Time statistics for heuristic algorithms without LLM pollution.
-    
-    This class provides the same timing functionality as TimeStats but
-    excludes LLM-specific fields like llm_communication_time.
-    """
+    """Time statistics for heuristic algorithms."""
     start_time: float
     
     def record_end_time(self) -> None:
@@ -56,43 +51,32 @@ class HeuristicTimeStats:
 
 class HeuristicGameData(BaseGameData):
     """
-    Game data tracking for heuristic algorithms.
+    Elegant game data tracking for heuristic algorithms.
     
-    Extends BaseGameData with heuristic-specific attributes while
-    maintaining the same core functionality and JSON output format.
-    
-    Design Patterns:
-    - Template Method: Inherits base data management structure
-    - Strategy Pattern: Different heuristic algorithms share same data structure
+    Extends BaseGameData with pathfinding metrics, algorithm tracking,
+    and comprehensive state validation for dataset generation.
     """
 
     def __init__(self) -> None:
         """Initialize heuristic game data tracking."""
         super().__init__()
 
-        # Override round_manager to use heuristic-specific version
+        # Heuristic-specific components
         self.round_manager = HeuristicRoundManager()
-
-        # Override time_stats to use heuristic-specific version without LLM pollution
         self.stats.time_stats = HeuristicTimeStats(start_time=time.time())
 
-        # Heuristic-specific tracking
-        self.algorithm_name: str = "BFS"  # Default algorithm
-        self.path_calculations: int = 0   # Number of pathfinding calls
+        # Algorithm tracking
+        self.algorithm_name: str = "BFS"
+        self.path_calculations: int = 0
         self.successful_paths: int = 0
         self.failed_paths: int = 0
-
-        # Track search performance
         self.total_search_time: float = 0.0
         self.nodes_explored: int = 0
+        self.grid_size: int = 10
 
-        # Grid size (will be set by game logic)
-        self.grid_size: int = 10  # Default, will be overridden
-
-        # v0.04 Enhancement: Store move explanations for JSONL dataset generation
+        # Dataset generation (v0.04)
         self.last_move_explanation: str = ""
-        self.move_explanations: list[str] = []  # Store all explanations for this game
-        # v0.04 Enhancement: Store structured metrics per move
+        self.move_explanations: list[str] = []
         self.move_metrics: list[dict] = []
 
     def reset(self) -> None:
@@ -205,7 +189,39 @@ class HeuristicGameData(BaseGameData):
 
         return data
 
-    def generate_game_summary(
+    def _add_task_specific_summary_fields(self, summary: Dict[str, Any], **kwargs) -> None:
+        """Add heuristics-specific fields to game summary."""
+        # Add algorithm information
+        summary["algorithm"] = self.algorithm_name
+        
+        # Add heuristics-specific statistics
+        summary["statistics"].update({
+            "path_calculations": self.path_calculations,
+            "successful_paths": self.successful_paths,
+            "failed_paths": self.failed_paths,
+            "total_search_time": self.total_search_time,
+            "nodes_explored": self.nodes_explored
+        })
+        
+        # Add dataset-specific information for v0.04
+        summary["dataset_info"] = {
+            "move_explanations": self.move_explanations,
+            "move_metrics": self.move_metrics,
+            "grid_size": self.grid_size
+        }
+        
+        # Add dataset game states for dataset generation
+        if hasattr(self, 'round_manager') and self.round_manager:
+            dataset_game_states = {}
+            ordered_rounds = self.round_manager.get_ordered_rounds_data()
+            
+            for round_key, round_data in ordered_rounds.items():
+                if "game_state" in round_data:
+                    dataset_game_states[round_key] = round_data["game_state"]
+            
+            summary["dataset_game_states"] = dataset_game_states
+    
+    def generate_game_summary_legacy(
         self,
         primary_provider: str = "bfs",
         primary_model: Optional[str] = None,

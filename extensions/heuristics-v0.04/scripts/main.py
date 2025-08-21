@@ -1,36 +1,27 @@
 """
-Dataset Generation CLI – parameter parsing & orchestration only.
+Heuristics CLI v0.04
+====================
 
-This module provides the command-line interface for dataset generation,
-orchestrating the game running and dataset generation processes.
+Elegant command-line interface for heuristic algorithm execution with
+automatic dataset generation and comprehensive parameter management.
 
-Design Philosophy:
-- Single responsibility: Only handles CLI parsing and orchestration
-- Delegates actual work to dataset_game_runner and dataset_generator
-- Standardized logging: Uses print_utils functions for all operations
-
-Example usage:
-    python main.py --algorithm BFS --format jsonl --max-games 2
-    python main.py --all-algorithms --format both --max-games 3
+Usage:
+    python main.py --algorithm BFS-512 --max-games 10
+    python main.py --algorithm BFS-SAFE-GREEDY-4096 --grid-size 15
 """
 
 import sys
 import os
 from pathlib import Path
 
-# Fix UTF-8 encoding issues on Windows
-# This ensures that all subprocesses and file operations use UTF-8
-# All file operations (CSV, JSONL, JSON) in v0.04 use UTF-8 encoding for cross-platform compatibility
+# Ensure UTF-8 encoding for cross-platform compatibility (SUPREME_RULE NO.7)
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
-# Add the heuristics-v0.04 directory to sys.path for imports
+# Setup path for imports
 current_dir = Path(__file__).resolve().parent
 heuristics_dir = current_dir.parent
 sys.path.insert(0, str(heuristics_dir))
-
-# Add the project root for utils imports
-project_root = heuristics_dir.parent.parent
-sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(heuristics_dir.parent.parent))
 
 from agents import get_available_algorithms, create
 from game_manager import HeuristicGameManager

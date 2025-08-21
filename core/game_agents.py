@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Public contract for any autonomous or interactive policy that can drive the
-Snake game.  All first-class agents (LLM, heuristic, RL, human, …) MUST
+Snake game.  All first-class agents (LLM, extensions, human, …) MUST
 implement this one-method interface so that the *core* package never needs to
 know *who* is providing moves.
 

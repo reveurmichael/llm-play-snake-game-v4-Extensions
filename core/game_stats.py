@@ -24,12 +24,9 @@ LLM-SPECIFIC STATISTICS (Task-0 only):
 # Task-0 (LLM): Uses full GameStatistics with all features
 game_data.stats = GameStatistics()  # Gets empty_steps, token_stats, etc.
 
-# Task-1 (Heuristics): Uses BaseGameStatistics only  
+# Extensions: Use BaseGameStatistics only  
 game_data.stats = BaseGameStatistics()  # Gets valid, invalid_reversals, no_path_found
 
-# Task-2 (RL): Could extend BaseGameStatistics for RL-specific metrics
-class RLGameStatistics(BaseGameStatistics):
-    episode_rewards: List[float] = field(default_factory=list)
 ```
 
 === JSON OUTPUT GUARANTEE ===

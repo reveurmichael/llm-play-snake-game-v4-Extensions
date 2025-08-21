@@ -1,14 +1,19 @@
-"""Human playable Snake game.
+"""
+Human Playable Snake Game
+========================
 
-Launch with:
+Elegant human-controlled Snake game with beautiful PyGame interface
+and comprehensive keyboard controls for interactive gameplay.
+
+Key Features:
+- Intuitive keyboard controls (Arrow keys or WASD)
+- Beautiful visual interface with smooth animations
+- Real-time score and statistics display
+- Reset functionality for continuous play
+- OOP design for extension inheritance
+
+Usage:
     python scripts/human_play.py
-
-This script allows a human to play the Snake game using the arrow keys.
-
-The script guarantees it runs from the repository root so that relative paths
-(e.g. logs/) behave consistently.
-
-This whole module is NOT Task0 specific. But no need to make it generic anyway. 
 """
 
 from __future__ import annotations

@@ -31,26 +31,15 @@ class GameData(BaseGameData):
         super().__init__()
         self.stats = GameStatistics()  # LLM-specific stats
 
-# Task-1 (Heuristics): Uses BaseGameData directly  
-class HeuristicGameData(BaseGameData):
-    def __init__(self):
-        super().__init__()
-        # Inherits: consecutive_invalid_reversals, consecutive_no_path_found
-        # Does NOT inherit: consecutive_empty_steps, consecutive_something_is_wrong
+# Extensions create their own GameData classes by inheriting from BaseGameData
 
-# Task-2 (RL): Could extend BaseGameData for RL-specific state
-class RLGameData(BaseGameData):
-    def __init__(self):
-        super().__init__()
-        self.episode_rewards = []  # RL-specific extension
-```
-
+"""
 === JSON OUTPUT GUARANTEE ===
 All game_N.json files follow the same schema for shared fields:
 - step_stats contains identical field names
 - detailed_history uses same apple_positions/moves format  
 - metadata section is consistent across tasks
-- Task-specific extensions appear as additional fields without conflicts
+- Extension-specific data appears as additional fields without conflicts
 """
 
 from __future__ import annotations
@@ -63,6 +52,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from core.game_stats_manager import NumPyJSONEncoder
 from utils.moves_utils import normalize_direction
+from config.game_constants import END_REASON_MAP
 from core.game_stats import BaseGameStatistics, GameStatistics
 from core.game_rounds import RoundManager
 
@@ -297,7 +287,7 @@ class BaseGameData:
     def start_new_round(self, apple_position=None) -> None:
         """Public helper to advance to the next round (no-op if RoundManager absent).
 
-        Tasks that maintain the *round* concept (LLM policy, heuristic
+        Tasks that maintain the *round* concept (LLM policy, extensions
         agents with look-ahead plans, etc.) should call this whenever a new
         top-level plan is generated.
         """
@@ -477,6 +467,28 @@ class GameData(BaseGameData):
         
         return summary
     
+    def _add_task_specific_summary_fields(self, summary: Dict[str, Any], **kwargs) -> None:
+        """Add LLM-specific fields to game summary."""
+        # Add LLM-specific information
+        summary.update({
+            "llm_info": {
+                "primary_provider": kwargs.get("primary_provider", "unknown"),
+                "primary_model": kwargs.get("primary_model", None),
+                "parser_provider": kwargs.get("parser_provider", None),
+                "parser_model": kwargs.get("parser_model", None),
+            },
+            "prompt_response_stats": self.get_prompt_response_stats(),
+            "token_stats": self.get_token_stats(),
+        })
+        
+        # Update statistics with LLM-specific data
+        summary["statistics"].update({
+            "consecutive_empty_steps": self.consecutive_empty_steps,
+            "consecutive_something_is_wrong": self.consecutive_something_is_wrong,
+            "empty_steps": getattr(self, 'empty_steps', 0),
+            "something_is_wrong_steps": getattr(self, 'something_is_wrong_steps', 0)
+        })
+    
     def save_game_summary(self, filepath: str, **kwargs) -> Dict[str, Any]:
         """Save the game summary to a file."""
         # Ensure any in-progress round data (typically the last one at game
@@ -600,6 +612,81 @@ class GameData(BaseGameData):
         ``core.game_manager_helper``.
         """
         return self._calculate_actual_round_count()
+    
+    def generate_game_summary(self, **kwargs) -> Dict[str, Any]:
+        """Generate comprehensive game summary for all task types.
+        
+        This method provides a clean, standardized game summary that works
+        for all extensions while allowing task-specific customization.
+        
+        Args:
+            **kwargs: Additional metadata to include in summary
+            
+        Returns:
+            Dictionary containing comprehensive game summary
+        """
+        summary = {
+            # Core game outcome
+            "score": self.score,
+            "steps": self.steps,
+            "snake_length": len(self.snake_positions) if self.snake_positions else 0,
+            "game_over": self.game_over,
+            "game_end_reason": self.game_end_reason,
+            "round_count": self.round_manager.round_count if hasattr(self, 'round_manager') else 0,
+            
+            # Game state tracking
+            "snake_positions": self.snake_positions,
+            "apple_position": self.apple_position,
+            "final_apple_positions": self.apple_positions,
+            
+            # Move tracking
+            "moves": self.moves,
+            "total_moves": len(self.moves),
+            
+            # Statistics
+            "statistics": self._get_base_statistics(),
+            
+            # Metadata
+            "metadata": {
+                "timestamp": self.timestamp,
+                "game_number": self.game_number,
+                **kwargs.get("metadata", {})
+            },
+            
+            # Replay data
+            "detailed_history": {
+                "apple_positions": self.apple_positions,
+                "moves": self.moves,
+                "rounds_data": self.round_manager.get_ordered_rounds_data() if hasattr(self, 'round_manager') else {}
+            }
+        }
+        
+        # Hook for task-specific additions
+        self._add_task_specific_summary_fields(summary, **kwargs)
+        
+        return summary
+    
+    def _get_base_statistics(self) -> Dict[str, Any]:
+        """Get base statistics that all tasks can use."""
+        return {
+            "consecutive_invalid_reversals": self.consecutive_invalid_reversals,
+            "consecutive_no_path_found": self.consecutive_no_path_found,
+            "no_path_found_steps": self.no_path_found_steps,
+            "total_steps": self.steps,
+            "total_score": self.score
+        }
+    
+    def _add_task_specific_summary_fields(self, summary: Dict[str, Any], **kwargs) -> None:
+        """Hook for tasks to add task-specific fields to game summary.
+        
+        Override in subclasses to add task-specific data to the game summary.
+        
+        Args:
+            summary: Game summary dictionary to modify
+            **kwargs: Additional arguments from generate_game_summary
+        """
+        # Base implementation does nothing - tasks override this
+        pass
 
     # Let BaseGameData handle record_move; we only need to reset Task-0 counters
 

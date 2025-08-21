@@ -90,7 +90,7 @@ Return a **JSON object** in this **exact format** (and nothing else!):
 1. Must not reverse direction on the first move.  
 2. Avoid collisions: walls, body segments, and future body positions given shifts.  
 3. After eating the apple, there must be at least one legal move next turn (do not trap yourself).  
-4. Use Manhattan distance as a heuristic, but prioritize safety over shortest path.  
+4. Use Manhattan distance as a guide, but prioritize safety over shortest path.  
 5. Ensure the BODY remains continuous after each move (each adjacent pair differs by exactly 1 in x or y).
 
 ## FINAL POSITION CHECK:

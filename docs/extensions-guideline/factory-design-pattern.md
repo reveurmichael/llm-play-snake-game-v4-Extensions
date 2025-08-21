@@ -85,7 +85,45 @@ print_info(f"Created agent: {agent.name}")  # SUPREME_RULES compliant logging
 
 ### **Agent Factory (Canonical Implementation)**
 
-# TODO
+```python
+class HeuristicAgentFactory:
+    """Canonical factory for heuristic agents following SUPREME_RULES."""
+    
+    _registry = {
+        "BFS": BFSAgent,
+        "ASTAR": AStarAgent,
+        "DFS": DFSAgent,
+        "HAMILTONIAN": HamiltonianAgent,
+    }
+    
+    @classmethod
+    def create(cls, algorithm: str, **kwargs):  # CANONICAL create() method
+        """Create agent using canonical create() method per SUPREME_RULES."""
+        agent_class = cls._registry.get(algorithm.upper())
+        if not agent_class:
+            available = list(cls._registry.keys())
+            raise ValueError(f"Unknown algorithm: {algorithm}. Available: {available}")
+        print_info(f"[HeuristicAgentFactory] Creating agent: {algorithm}")
+        return agent_class(**kwargs)
+```
+
+### **Model Factory (Supervised Learning)**
+
+```python
+class ModelFactory:
+    """Canonical factory for ML models following SUPREME_RULES."""
+    
+    @classmethod
+    def create(cls, model_type: str, **kwargs):  # CANONICAL create() method
+        """Create ML model using canonical create() method per SUPREME_RULES."""
+        if model_type.upper() == "MLP":
+            return MLPModel(**kwargs)
+        elif model_type.upper() == "LIGHTGBM":
+            return LightGBMModel(**kwargs)
+        else:
+            available = ["MLP", "LightGBM"]
+            raise ValueError(f"Unknown model: {model_type}. Available: {available}")
+```
 
 ## 🎓 **Educational Applications with Canonical Patterns**
 

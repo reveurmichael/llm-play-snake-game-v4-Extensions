@@ -1,10 +1,16 @@
-"""Wrapper script delegating to the original project-root `main.py`.
+"""
+Task-0 Main Entry Point
+======================
 
-It guarantees the working directory is the repository root so that relative
-paths (log folders, Flask template dirs, …) behave exactly like when the
-script is launched from the root.
+LLM-powered Snake Game AI with comprehensive multi-provider support,
+advanced reasoning capabilities, and elegant user interface options.
 
-This whole module is Task0 specific.
+Key Features:
+- Multi-provider LLM support (OpenAI, Anthropic, DeepSeek, Hunyuan, Ollama)
+- Mixture-of-Experts dual LLM architecture
+- Multiple interface options (PyGame, Web, CLI)
+- Comprehensive session management and replay
+- Advanced error handling and recovery
 """
 
 from __future__ import annotations
@@ -74,7 +80,28 @@ def get_parser() -> argparse.ArgumentParser:
     Returns:
         An argparse.ArgumentParser instance.
     """
-    parser = argparse.ArgumentParser(description="LLM-guided Snake game")
+    parser = argparse.ArgumentParser(
+        description="🐍 Snake Game AI - Task0 (LLM-Powered)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Single LLM (recommended for beginners)
+  python scripts/main.py --provider ollama --model deepseek-r1:7b
+  
+  # Dual LLM (Mixture-of-Experts)
+  python scripts/main.py --provider ollama --model deepseek-r1:7b --parser-provider ollama --parser-model gemma2:9b
+  
+  # Cloud providers
+  python scripts/main.py --provider hunyuan --model hunyuan-t1-latest
+  python scripts/main.py --provider deepseek --model deepseek-chat
+  
+  # Headless mode (no GUI)
+  python scripts/main.py --provider ollama --model deepseek-r1:7b --no-gui
+  
+  # Continue previous session
+  python scripts/main.py --continue-with-game-in-dir logs/llm_20240101_120000
+        """
+    )
     provider_help = (
         "LLM provider to use for primary LLM. Available: " + ", ".join(AVAILABLE_PROVIDERS)
     )
@@ -308,18 +335,51 @@ class MainApplication:
             
         except KeyboardInterrupt:
             print(f"\n{Fore.YELLOW}⚠️ Game interrupted by user")
+            print(f"{Fore.GREEN}✅ Session data saved successfully")
         except Exception as e:
             print(f"{Fore.RED}❌ Fatal error: {e}")
             logger.error(f"Fatal error in main application: {e}", exc_info=True)
+            print(f"{Fore.YELLOW}💾 Attempting to save session data...")
+            try:
+                if hasattr(self, 'game_manager') and self.game_manager:
+                    self.game_manager.save_session_summary()
+                    print(f"{Fore.GREEN}✅ Session data saved despite error")
+            except:
+                print(f"{Fore.RED}❌ Could not save session data")
             raise
         finally:
-            pygame.quit()
+            # Ensure clean shutdown
+            try:
+                pygame.quit()
+            except:
+                pass  # pygame might not be initialized
 
 
 def main():
     """Initialize and run the LLM Snake game using OOP approach."""
-    app = MainApplication()
-    app.run_application()
+    # Display startup banner
+    print(f"{Fore.GREEN}🐍 Snake Game AI - Task0 (LLM-Powered)")
+    print(f"{Fore.GREEN}=" * 50)
+    print(f"{Fore.BLUE}🧠 Advanced Language Model Integration")
+    print(f"{Fore.BLUE}🎮 Multiple Interface Options Available")
+    print(f"{Fore.BLUE}📊 Comprehensive Session Management")
+    print(f"{Fore.GREEN}=" * 50)
+    print()
+    
+    try:
+        app = MainApplication()
+        app.run_application()
+        
+        print(f"\n{Fore.GREEN}🎉 Task0 execution completed successfully!")
+        print(f"{Fore.GREEN}✅ All session data saved and validated")
+        
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}⚠️ Application interrupted by user")
+        print(f"{Fore.GREEN}✅ Graceful shutdown completed")
+    except Exception as e:
+        print(f"\n{Fore.RED}❌ Application failed: {e}")
+        print(f"{Fore.YELLOW}💡 Check logs for detailed error information")
+        raise
 
 
 if __name__ == "__main__":

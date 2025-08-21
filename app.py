@@ -1,7 +1,16 @@
 """
-Snake Game Analytics Dashboard
+Snake Game AI Dashboard
+======================
 
-A Streamlit app for analyzing, replaying, and continuing recorded Snake game sessions.
+Comprehensive Streamlit dashboard for Snake Game AI analysis, replay,
+and session management with elegant interface and powerful features.
+
+Key Features:
+- Game session analysis and statistics
+- PyGame and Web replay capabilities  
+- Session continuation and management
+- Human vs AI gameplay modes
+- Comprehensive experiment overview
 """
 
 import streamlit as st

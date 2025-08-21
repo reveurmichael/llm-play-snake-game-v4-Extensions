@@ -33,13 +33,14 @@ core/game_limits_manager.py
 ### **1. Automatic Limit Management**
 Extensions inherit sophisticated limit tracking without additional code:
 ```python
-# Task 1 Heuristic Extension - No extra limit code needed
-class HeuristicGameManager(GameManager):
-    def __init__(self, args):
+# Heuristics Extension - No extra limit code needed
+class HeuristicGameManager(BaseGameManager):
+    def __init__(self, args, agent):
         super().__init__(args)  # Limits manager automatically included
-        self.heuristic_strategy = HeuristicStrategy()
+        self.agent = agent
     
     # All consecutive limits automatically tracked!
+    # Use self.limits_manager.should_end_game() in game loops
 ```
 
 ### **2. Configurable Behavior**

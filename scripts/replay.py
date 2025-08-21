@@ -1,8 +1,19 @@
 """
-Snake Game Replay Module.
-Allows replaying of previously recorded games based on logged moves.
+Snake Game Replay System
+=======================
 
-This whole module is Task0 specific.
+Advanced replay system for analyzing recorded Snake Game AI sessions
+with beautiful PyGame visualization and comprehensive analysis tools.
+
+Key Features:
+- Visual replay of recorded game sessions
+- Speed control and frame-by-frame analysis
+- Move sequence visualization
+- Performance metrics display
+- OOP design for extension inheritance
+
+Usage:
+    python scripts/replay.py --log_dir logs/session_folder --game_number 1
 """
 
 # ---------------------

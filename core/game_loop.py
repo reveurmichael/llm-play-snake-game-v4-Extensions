@@ -49,7 +49,7 @@ class BaseGameLoop:
         :py:meth:`run` method stays readable.
     2. **LLM-agnostic**: the base class *does not* import or reference any
         network code directly.  Task-0 subclasses keep the HTTP / websocket
-        specifics so future heuristic / RL tasks can reuse the loop without
+        specifics so future extensions can reuse the loop without
         modification.
     3. **Open/Closed Principle**: every significant step (_new-plan_,
         _execute-move_, _apple-logic_, …) is factored into its own protected
@@ -115,7 +115,7 @@ class BaseGameLoop:
         manager.game.draw()
 
     def _get_new_plan(self) -> None:
-        """Subclasses (LLM, heuristic, RL…) must implement their own plan-fetching logic."""
+        """Subclasses (LLM, extensions) must implement their own plan-fetching logic."""
         raise NotImplementedError
         
     def _execute_next_planned_move(self) -> None:
@@ -185,7 +185,7 @@ class BaseGameLoop:
 
     # Agent path – unchanged behaviour
     def _process_agent_game(self) -> None:
-        """Path for **non-LLM agents** (heuristic, RL, human, …)."""
+        """Path for **non-LLM agents** (extensions, human, etc.)."""
 
         manager = self.manager
         move = manager.agent.get_move(manager.game)  # type: ignore[arg-type]

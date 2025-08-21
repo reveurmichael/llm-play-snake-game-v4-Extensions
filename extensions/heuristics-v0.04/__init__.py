@@ -11,7 +11,6 @@ ensure_project_root()
 from .agents import (
     create,
     get_available_algorithms,
-    get_algorithm_info,
     DEFAULT_ALGORITHM
 )
 
@@ -28,7 +27,6 @@ __all__ = [
     # Canonical factory functions
     "create",
     "get_available_algorithms", 
-    "get_algorithm_info",
     "DEFAULT_ALGORITHM",
     
     # Main modules

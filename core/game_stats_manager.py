@@ -68,13 +68,10 @@ The save_session_stats() method creates perfectly structured summary.json files:
 stats_manager = GameStatsManager()
 stats_manager.save_session_stats(log_dir, token_stats=llm_tokens)  # LLM-specific
 
-# Task-1 (Heuristics): Uses BaseGameStatsManager only
+# Extensions: Use BaseGameStatsManager
 stats_manager = BaseGameStatsManager()
-stats_manager.save_session_stats(log_dir, algorithm_stats=heuristic_data)  # Generic
+stats_manager.save_session_stats(log_dir, algorithm_stats=extension_data)  # Generic
 
-# Task-2 (RL): Could extend BaseGameStatsManager for RL-specific metrics
-class RLStatsManager(BaseGameStatsManager):
-    def save_training_stats(self, episode_data): ...
 ```
 
 === JSON UPDATE GUARANTEE ===

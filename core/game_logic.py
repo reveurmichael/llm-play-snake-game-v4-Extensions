@@ -1,9 +1,12 @@
 """
-Snake game implementation with LLM integration.
-Extends the base game controller with LLM-specific functionality.
+Core Game Logic
+===============
 
-The class BaseGameLogic is NOT Task0 specific.
-The class GameLogic is Task0 specific.
+Universal game logic for Snake Game AI with clean separation between
+base mechanics (BaseGameLogic) and LLM-specific functionality (GameLogic).
+
+BaseGameLogic: Universal game mechanics for all tasks
+GameLogic: Task-0 LLM-specific extensions
 """
 
 import traceback
@@ -17,16 +20,12 @@ from core.game_data import BaseGameData, GameData
 from utils.collision_utils import check_collision
 from utils.moves_utils import is_reverse
 from utils.board_utils import generate_random_apple, update_board_array
+from utils.print_utils import print_info, print_warning, print_error
 
 # Avoid circular imports
 if TYPE_CHECKING:
     from gui.base_gui import BaseGUI
 
-# ------------------
-# BaseGameLogic – generic game logic independent of controllers
-# ------------------
-
-# This class is NOT Task0 specific.
 class BaseGameLogic:
     """Generic game logic class that handles core Snake game mechanics.
 
@@ -153,7 +152,7 @@ class BaseGameLogic:
         """Execute a move in the specified direction."""
         # Check if game is already over - no moves allowed
         if self.game_state.game_over:
-            print(f"Game over! No moves allowed. Current end reason: {self.game_state.game_end_reason}")
+            print_warning(f"Game over! No moves allowed. Current end reason: {self.game_state.game_end_reason}")
             return False, False
             
         # Standardize direction key to uppercase
@@ -162,7 +161,7 @@ class BaseGameLogic:
 
         # Get direction vector
         if direction_key not in DIRECTIONS:
-            print(f"Error: Invalid direction: {direction_key}")
+            print_error(f"Error: Invalid direction: {direction_key}")
             return False, False
 
         direction = DIRECTIONS[direction_key]
@@ -172,7 +171,7 @@ class BaseGameLogic:
             self.current_direction is not None and
             is_reverse(direction_key, self._get_current_direction_key())
         ):
-            print(f"Tried to reverse direction: {direction_key}. No move will be made.")
+            print_warning(f"Tried to reverse direction: {direction_key}. No move will be made.")
             self.game_state.record_invalid_reversal()
             return True, False
 
@@ -193,7 +192,7 @@ class BaseGameLogic:
         wall_collision, body_collision = self._check_collision(new_head, is_eating_apple_at_new_head)
 
         if wall_collision:
-            print(f"Game over! Snake hit wall moving {direction_key}")
+            print_warning(f"Game over! Snake hit wall moving {direction_key}")
             self.last_collision_type = 'WALL'
             self.game_state.record_move(direction_key, apple_eaten=False)
             self.game_state.record_game_end("WALL")
@@ -201,7 +200,7 @@ class BaseGameLogic:
             return False, False
 
         if body_collision:
-            print(f"Game over! Snake hit itself moving {direction_key}")
+            print_warning(f"Game over! Snake hit itself moving {direction_key}")
             self.last_collision_type = 'SELF'
             self.game_state.record_move(direction_key, apple_eaten=False)
             self.game_state.record_game_end("SELF")
@@ -236,7 +235,7 @@ class BaseGameLogic:
         # Display message if apple was eaten
         if apple_eaten:
             apples_emoji = "🍎" * self.score
-            print(f"🚀 Apple eaten! Score: {self.score} {apples_emoji}")
+            print_info(f"🚀 Apple eaten! Score: {self.score} {apples_emoji}")
 
         # Draw if GUI is available
         if self.use_gui and self.gui:
@@ -433,7 +432,7 @@ class GameLogic(BaseGameLogic):
 
             return parse_llm_response(response, process_response_for_display, self)
         except Exception as e:
-            print(f"Error parsing LLM response: {e}")
+            print_error(f"Error parsing LLM response: {e}")
             traceback.print_exc()
             
             # Store the raw response for display (first 200 chars)

@@ -45,15 +45,10 @@ if TYPE_CHECKING:
 
 class HeuristicGameLogic(BaseGameLogic):
     """
-    Game logic for heuristic algorithms.
+    Elegant game logic for heuristic pathfinding algorithms.
     
-    Extends BaseGameLogic with heuristic-specific functionality while
-    maintaining the same core game mechanics and interface.
-    
-    Design Patterns:
-    - Template Method: Inherits base game logic structure
-    - Strategy Pattern: Pluggable heuristic algorithms
-    - Factory Pattern: Uses HeuristicGameData for data container
+    Extends BaseGameLogic with heuristic agent integration, explanation
+    generation, and robust state management for dataset creation.
     """
 
     # Use heuristic-specific data container
@@ -64,49 +59,38 @@ class HeuristicGameLogic(BaseGameLogic):
     planned_moves: List[str]
 
     def __init__(self, grid_size: int = GRID_SIZE, use_gui: bool = True) -> None:
-        """
-        Initialize heuristic game logic with pathfinding capabilities.
-        
-        Args:
-            grid_size: Size of the game grid (default from config)
-            use_gui: Whether to use GUI (default True, can be disabled for headless)
-        """
+        """Initialize heuristic game logic with pathfinding capabilities."""
         super().__init__(grid_size=grid_size, use_gui=use_gui)
 
         # Heuristic-specific attributes
         self.agent: Optional[BFSAgent] = None
-        # Default algorithm name before an agent is set
         self.algorithm_name: str = "BFS-Safe-Greedy"
 
-        # Ensure we have the correct data type and grid_size is set
-        # Note: game_state is initialized in super().__init__(), so we can safely access it here
+        # Ensure correct data type
         if not isinstance(self.game_state, HeuristicGameData):
             self.game_state = HeuristicGameData()
 
-        # SSOT Fix: Sync initial snake positions BEFORE reset() to avoid fail-fast error
-        # The base class initializes snake_positions but doesn't sync them to game_state
-        # We need to sync them before the reset() call that triggers SSOT validation
+        # Initialize game state with proper synchronization
         if isinstance(self.game_state, HeuristicGameData):
             self.game_state.grid_size = grid_size
             self.game_state.snake_positions = self.snake_positions.tolist()
             self.game_state.apple_position = self.apple_position.tolist()
             self.game_state.reset()
-            # Validate initial game state without creating rounds (rounds start with moves)
+            
+            # Validate initial state
             initial_state = self.get_state_snapshot()
             if not initial_state['snake_positions'] or not initial_state['apple_position']:
                 raise RuntimeError("[SSOT] Initial game state is missing or invalid after initialization.")
 
     def set_agent(self, agent: BFSAgent) -> None:
-        """
-        Set the heuristic agent for pathfinding.
-        
-        Args:
-            agent: Heuristic agent instance (BFS, DFS, etc.)
-        """
+        """Set the heuristic agent for pathfinding."""
         self.agent = agent
-        self.algorithm_name = getattr(
-            agent, "algorithm_name", "Unknown"
-        )  # TODO: if no algorithm_name, we should raise an error
+        
+        # Validate agent has algorithm_name - required for heuristics
+        if not hasattr(agent, "algorithm_name") or not agent.algorithm_name:
+            raise ValueError(f"Agent {agent} must have a valid algorithm_name attribute")
+        
+        self.algorithm_name = agent.algorithm_name
 
         # Update game data with algorithm info and grid_size
         if isinstance(self.game_state, HeuristicGameData):
@@ -114,15 +98,7 @@ class HeuristicGameLogic(BaseGameLogic):
             self.game_state.grid_size = self.grid_size  # Set actual grid size
 
     def plan_next_moves(self) -> List[str]:
-        """
-        Plan next moves using the heuristic agent.
-        
-        This method implements the planning logic for heuristic algorithms,
-        replacing the LLM-specific planning in Task-0.
-        
-        Returns:
-            List of planned moves (typically single move for heuristics)
-        """
+        """Plan next moves using the heuristic agent."""
         if not self.agent:
             raise RuntimeError("No agent set. Please set an agent before planning moves.")
 
@@ -241,14 +217,13 @@ class HeuristicGameLogic(BaseGameLogic):
         move, explanation = self.agent.get_move_with_explanation(recorded_game_state)
         self._store_explanation(explanation)
 
-        # Generate planned moves
-        planned_moves = (
-            [move] if move and move != "NO_PATH_FOUND" else ["NO_PATH_FOUND"]
-        )  # TODO: planned_moves = [move] is enough; if move is None, we should raise an error
+        # Validate move and generate planned moves
+        if not move:
+            raise ValueError("Agent must return a valid move, not None")
+        
+        planned_moves = [move]
 
         # Record planned moves in round manager
-        # TODO: it seems that if it's a good design, we should not record planned_moves here,
-        # instead, in the base classes, things are done already in a transparent way.
         if hasattr(self.game_state, 'round_manager') and self.game_state.round_manager:
             self.game_state.round_manager.record_planned_moves(planned_moves)
             # Note: The actual move will be recorded by the base make_move() method
@@ -278,8 +253,6 @@ class HeuristicGameLogic(BaseGameLogic):
             "has_agent": self.agent is not None
         }
 
-    # TODO: in a good design, in subclasses, we should not see such code.
-    # TODO: seems the base class of game_state_adapter.py is not used. Should be the case.
     def get_state_snapshot(self) -> dict:
         """
         Get current game state snapshot for agent decision making.
@@ -310,8 +283,6 @@ class HeuristicGameLogic(BaseGameLogic):
             "snake_length": len(self.snake_positions)  # PRE-MOVE: current snake length
         }
 
-    # TODO: in a good design, in subclasses, we should not see such code.
-    # TODO: check also state_management.py 
     def get_recorded_state_snapshot(self, recorded_state: dict) -> dict:
         """
         Get game state snapshot from recorded state for dataset consistency.

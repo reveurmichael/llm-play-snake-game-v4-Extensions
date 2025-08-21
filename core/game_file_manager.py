@@ -48,7 +48,7 @@ This module ensures PERFECT JSON schema consistency:
 file_manager = FileManager()
 file_manager.save_prompt(prompt, game_num, round_num)  # LLM-specific
 
-# Task-1 (Heuristics): Uses BaseFileManager only
+# Extensions: Use BaseFileManager
 file_manager = BaseFileManager()  
 file_manager.save_game_json(game_data, game_num)  # Universal operation
 

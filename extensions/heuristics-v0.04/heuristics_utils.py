@@ -1,12 +1,15 @@
 """
-Heuristic Utilities - Helper functions for heuristic algorithms v0.04
-----------------
+Heuristic Utilities v0.04
+=========================
 
-This module contains utility functions that are specific to heuristic algorithms
-and used across multiple agent implementations.
+Elegant utility functions for heuristic pathfinding algorithms following
+SSOT principles and supporting all agent implementations.
 
-These functions were moved from agent_bfs.py to follow SSOT principles and 
-improve code organization.
+Key Features:
+- Centralized pathfinding utilities (BFS, validation, metrics)
+- Grid-agnostic design for any board size
+- Performance-optimized algorithms
+- Clean, reusable function signatures
 """
 from __future__ import annotations
 

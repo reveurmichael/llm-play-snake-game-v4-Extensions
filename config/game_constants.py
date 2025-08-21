@@ -24,7 +24,7 @@ LLM-SPECIFIC (Tasks 0, 4, 5 only):
 - PROMPTS_DIR_NAME, RESPONSES_DIR_NAME: LLM artifact directory names
 
 === WHY THIS SEPARATION MATTERS ===
-- Tasks 1-3 (heuristics/RL/supervised) never encounter LLM-specific errors
+- Tasks 1-3 (extensions) never encounter LLM-specific errors
 - They only use universal constants for game mechanics and error limits
 - Tasks 4-5 (LLM fine-tuning/distillation) inherit ALL constants
 - This enables clean inheritance without pollution
@@ -75,8 +75,8 @@ MAX_GAMES_ALLOWED = 2 # This one is NOT Task0 specific.
 MAX_STEPS_ALLOWED = 400 # This one is NOT Task0 specific.
 MAX_CONSECUTIVE_EMPTY_MOVES_ALLOWED = 3   # Only relevant for Task-0 and distillation3fine-tune tracks. So this one is Task0 specific.
 MAX_CONSECUTIVE_SOMETHING_IS_WRONG_ALLOWED = 3  # Parsing/LLM errors – Task-0 & distillation. So this one is Task0 specific.
-MAX_CONSECUTIVE_INVALID_REVERSALS_ALLOWED = 10  # Applies to ALL tasks (heuristics/RL/SL/LLM). So this one is NOT Task0 specific.
-MAX_CONSECUTIVE_NO_PATH_FOUND_ALLOWED = 1  # Task-0: LLM admitted no path; heuristics/RL treat as done. So this one is NOT Task0 specific.
+MAX_CONSECUTIVE_INVALID_REVERSALS_ALLOWED = 10  # Applies to ALL tasks (extensions/LLM). So this one is NOT Task0 specific.
+MAX_CONSECUTIVE_NO_PATH_FOUND_ALLOWED = 1  # Task-0: LLM admitted no path; extensions treat as done. So this one is NOT Task0 specific.
 
 # Optional pause after *any* EMPTY tick (irrespective of reason).  Separate
 # control previously tied to NO_PATH_FOUND. So it's Task0 specific.
@@ -149,7 +149,7 @@ are intentionally conservative so a runaway model does not soft-lock a session
 (e.g. by emitting thousands of EMPTY moves).  Second-citizen tasks will adopt
 a subset of these limits:
 
-• Heuristics / RL / Supervised (Task-1 → 3)
+• Extensions (Task-1+)
   – operate with *deterministic* policies or value functions and never expect
     EMPTY or SOMETHING_IS_WRONG sentinels – only path-planning failures or
     invalid reversals.

@@ -7,7 +7,7 @@ continuation bookkeeping – and exposes it as a normal
 of *core* achieves two design goals:
 
 1. **Pluggability** – The game loop now talks to an *agent* instead of a
-   hard-coded helper.  Future heuristic / RL / curriculum tasks can supply
+   hard-coded helper.  Future extensions tasks can supply
    their own agents without touching the loop.
 
 2. **Unidirectional dependency graph** – Only the :pymod:`llm` package knows
@@ -15,7 +15,7 @@ of *core* achieves two design goals:
    completely provider-agnostic.
 
 While the class is Task-0 specific for now, it sets the precedent for richer
-agents in Tasks 1–5 (e.g. `HeuristicSnakeAgent`, `RlSnakeAgent`).
+agents in Tasks 1–5 (e.g. `custom extension agents`).
 """
 
 from __future__ import annotations
