@@ -18,7 +18,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from utils.print_utils import print_info, print_warning, print_error
+# Use simple print instead of utils to avoid numpy dependency issues
+def print_info(msg): print(f"[INFO] {msg}")
+def print_warning(msg): print(f"[WARNING] {msg}")  
+def print_error(msg): print(f"[ERROR] {msg}")
 from typing import Dict, Any, Optional
 
 

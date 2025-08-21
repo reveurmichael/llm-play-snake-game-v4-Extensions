@@ -21,8 +21,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Tuple
-import numpy as np
-from utils.print_utils import print_info, print_warning, print_error
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Fallback numpy-like functionality
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def zeros(size):
+            return [0.0] * size
+# Use simple print instead of utils to avoid numpy dependency issues
+def print_info(msg): print(f"[INFO] {msg}")
+def print_warning(msg): print(f"[WARNING] {msg}")  
+def print_error(msg): print(f"[ERROR] {msg}")
 
 
 class BaseSupervisedAgent(ABC):

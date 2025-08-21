@@ -20,9 +20,43 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 import time
 import pickle
 from typing import Dict, Any, Optional
-import numpy as np
 from .base_agent import BaseSupervisedAgent
-from utils.print_utils import print_info, print_warning, print_error
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Fallback numpy-like functionality
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+        @staticmethod
+        def argmax(data):
+            return max(range(len(data)), key=lambda i: data[i])
+        @staticmethod
+        def exp(x):
+            import math
+            if isinstance(x, list):
+                return [math.exp(val) for val in x]
+            return math.exp(x)
+        @staticmethod
+        def max(data):
+            return max(data)
+        @staticmethod
+        def sum(data):
+            return sum(data)
+        @staticmethod
+        def ones(size):
+            return [1.0] * size
+        @staticmethod
+        def round(x):
+            return round(x)
+# Use simple print instead of utils to avoid numpy dependency issues
+def print_info(msg): print(f"[INFO] {msg}")
+def print_warning(msg): print(f"[WARNING] {msg}")  
+def print_error(msg): print(f"[ERROR] {msg}")
 
 try:
     import lightgbm as lgb

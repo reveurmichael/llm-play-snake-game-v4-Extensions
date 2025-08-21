@@ -20,9 +20,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import time
 from typing import Dict, Any, Optional
-import numpy as np
 from .base_agent import BaseSupervisedAgent
-from utils.print_utils import print_info, print_warning, print_error
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # Fallback numpy-like functionality
+    class np:
+        @staticmethod
+        def array(data):
+            return data
+# Use simple print instead of utils to avoid numpy dependency issues
+def print_info(msg): print(f"[INFO] {msg}")
+def print_warning(msg): print(f"[WARNING] {msg}")  
+def print_error(msg): print(f"[ERROR] {msg}")
 
 try:
     import torch
@@ -31,13 +44,53 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     print_warning("[MLP Agent] PyTorch not available")
-
-
-class MLPModel(nn.Module):
-    """Simple MLP model for move prediction."""
+    # Create dummy classes to prevent import errors
+    class torch:
+        class device:
+            def __init__(self, name): pass
+        @staticmethod
+        def cuda():
+            class cuda:
+                @staticmethod
+                def is_available(): return False
+            return cuda
+        @staticmethod
+        def load(path, map_location=None): return {}
+        @staticmethod
+        def FloatTensor(data): return data
+        @staticmethod
+        def no_grad():
+            class NoGrad:
+                def __enter__(self): return self
+                def __exit__(self, *args): pass
+            return NoGrad()
+        @staticmethod
+        def softmax(x, dim=None): return x
+        @staticmethod
+        def argmax(x, dim=None): return 0
     
-    def __init__(self, input_size: int = 20, hidden_sizes: list = None, num_classes: int = 4):
-        super().__init__()
+    class nn:
+        class Module:
+            def __init__(self): pass
+            def eval(self): pass
+            def to(self, device): return self
+            def load_state_dict(self, state): pass
+        class Linear:
+            def __init__(self, *args): pass
+        class ReLU:
+            def __init__(self): pass
+        class Dropout:
+            def __init__(self, *args): pass
+        class Sequential:
+            def __init__(self, *args): pass
+
+
+if TORCH_AVAILABLE:
+    class MLPModel(nn.Module):
+        """Simple MLP model for move prediction."""
+        
+        def __init__(self, input_size: int = 20, hidden_sizes: list = None, num_classes: int = 4):
+            super().__init__()
         
         if hidden_sizes is None:
             hidden_sizes = [64, 32]
@@ -59,8 +112,19 @@ class MLPModel(nn.Module):
         
         self.network = nn.Sequential(*layers)
     
-    def forward(self, x):
-        return self.network(x)
+        def forward(self, x):
+            return self.network(x)
+else:
+    # Fallback MLPModel when PyTorch is not available
+    class MLPModel:
+        def __init__(self, *args, **kwargs):
+            pass
+        def eval(self):
+            pass
+        def to(self, device):
+            return self
+        def load_state_dict(self, state):
+            pass
 
 
 class MLPAgent(BaseSupervisedAgent):

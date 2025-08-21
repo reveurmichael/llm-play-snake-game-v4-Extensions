@@ -38,14 +38,31 @@ except ImportError:
 
 from typing import Dict, Type, Optional, List, Any
 
-# Import canonical factory utilities
+# Import canonical factory utilities - avoid numpy dependency
 try:
-    from utils.factory_utils import SimpleFactory
-except ImportError:
-    # Fallback for when running from extension directory
+    # Try direct import first
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+    
+    # Import only the specific module we need
     from utils.factory_utils import SimpleFactory
+except ImportError:
+    # Create a simple factory if utils not available
+    class SimpleFactory:
+        def __init__(self, name):
+            self.name = name
+            self._registry = {}
+        
+        def register(self, key, value):
+            self._registry[key] = value
+        
+        def create(self, key, **kwargs):
+            if key not in self._registry:
+                raise ValueError(f"Unknown {key}. Available: {list(self._registry.keys())}")
+            return self._registry[key](**kwargs)
+        
+        def list_available(self):
+            return list(self._registry.keys())
 
 # Import all agent classes (including base classes for inheritance)
 from .agent_bfs import BFSAgent
