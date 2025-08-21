@@ -1,22 +1,23 @@
-"""extensions.common – Shared building blocks for *all* extensions.
+"""
+Extensions Common Package
+========================
 
-This package follows final-decision.md Guideline 3: lightweight, OOP-based common utilities 
-with simple logging (print() statements) rather than complex *.log file mechanisms.
+Elegant shared utilities for all Snake Game AI extensions following
+SUPREME_RULES with lightweight, extensible, and educational design.
 
-The public API is intentionally tiny:
-* `config`      – ultra-lightweight configuration constants.
-* `utils`       – a handful of helper functions/classes (dataset, path, csv).
-* `validation`  – very simple sanity-check helpers.
-
-If your extension needs something more advanced – make it part of *your*
-package.  Do **not** add heavy machinery here.
+Key Components:
+- **config**: Ultra-lightweight configuration constants and schemas
+- **utils**: Essential helper functions (dataset, CSV, game state utilities)
+- **validation**: Simple validation helpers for data integrity
 
 Design Philosophy:
-- Simple, object-oriented utilities that can be inherited and extended
+- SUPREME_RULES compliance with simple logging and canonical patterns
+- OOP-based utilities designed for inheritance and extension
 - No tight coupling with ML/DL/RL/LLM-specific concepts
-- Simple logging with print() statements (final-decision.md Guideline 3)
-- Enables easy addition of new extensions without friction
+- Lightweight and focused - heavy machinery belongs in specific extensions
+- Educational value with clear, reusable patterns
 
+Perfect for: Heuristics, Supervised Learning, RL, and all future extensions
 Reference: docs/extensions-guideline/final-decision.md
 """
 
