@@ -189,7 +189,39 @@ class HeuristicGameData(BaseGameData):
 
         return data
 
-    def generate_game_summary(
+    def _add_task_specific_summary_fields(self, summary: Dict[str, Any], **kwargs) -> None:
+        """Add heuristics-specific fields to game summary."""
+        # Add algorithm information
+        summary["algorithm"] = self.algorithm_name
+        
+        # Add heuristics-specific statistics
+        summary["statistics"].update({
+            "path_calculations": self.path_calculations,
+            "successful_paths": self.successful_paths,
+            "failed_paths": self.failed_paths,
+            "total_search_time": self.total_search_time,
+            "nodes_explored": self.nodes_explored
+        })
+        
+        # Add dataset-specific information for v0.04
+        summary["dataset_info"] = {
+            "move_explanations": self.move_explanations,
+            "move_metrics": self.move_metrics,
+            "grid_size": self.grid_size
+        }
+        
+        # Add dataset game states for dataset generation
+        if hasattr(self, 'round_manager') and self.round_manager:
+            dataset_game_states = {}
+            ordered_rounds = self.round_manager.get_ordered_rounds_data()
+            
+            for round_key, round_data in ordered_rounds.items():
+                if "game_state" in round_data:
+                    dataset_game_states[round_key] = round_data["game_state"]
+            
+            summary["dataset_game_states"] = dataset_game_states
+    
+    def generate_game_summary_legacy(
         self,
         primary_provider: str = "bfs",
         primary_model: Optional[str] = None,
