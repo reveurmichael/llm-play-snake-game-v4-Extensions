@@ -31,12 +31,7 @@ class GameData(BaseGameData):
         super().__init__()
         self.stats = GameStatistics()  # LLM-specific stats
 
-# Task-1 (Heuristics): Uses BaseGameData directly  
-class HeuristicGameData(BaseGameData):
-    def __init__(self):
-        super().__init__()
-        # Inherits: consecutive_invalid_reversals, consecutive_no_path_found
-        # Does NOT inherit: consecutive_empty_steps, consecutive_something_is_wrong
+# Extensions use BaseGameData directly - no extension-specific classes needed
 
 # Task-2 (RL): Could extend BaseGameData for RL-specific state
 class RLGameData(BaseGameData):
