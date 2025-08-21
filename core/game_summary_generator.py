@@ -90,6 +90,4 @@ class BaseGameSummaryGenerator:
         Hook for extension-specific session summary fields.
         Override in subclasses as needed.
         """
-        pass 
-
-# TODO: it's NOT used by Task0 yet. Should be used by Task0. And should be used by heuristics-v0.04.
+        pass

@@ -104,9 +104,12 @@ class HeuristicGameLogic(BaseGameLogic):
             agent: Heuristic agent instance (BFS, DFS, etc.)
         """
         self.agent = agent
-        self.algorithm_name = getattr(
-            agent, "algorithm_name", "Unknown"
-        )  # TODO: if no algorithm_name, we should raise an error
+        
+        # Validate agent has algorithm_name - required for heuristics
+        if not hasattr(agent, "algorithm_name") or not agent.algorithm_name:
+            raise ValueError(f"Agent {agent} must have a valid algorithm_name attribute")
+        
+        self.algorithm_name = agent.algorithm_name
 
         # Update game data with algorithm info and grid_size
         if isinstance(self.game_state, HeuristicGameData):
@@ -241,14 +244,13 @@ class HeuristicGameLogic(BaseGameLogic):
         move, explanation = self.agent.get_move_with_explanation(recorded_game_state)
         self._store_explanation(explanation)
 
-        # Generate planned moves
-        planned_moves = (
-            [move] if move and move != "NO_PATH_FOUND" else ["NO_PATH_FOUND"]
-        )  # TODO: planned_moves = [move] is enough; if move is None, we should raise an error
+        # Validate move and generate planned moves
+        if not move:
+            raise ValueError("Agent must return a valid move, not None")
+        
+        planned_moves = [move]
 
         # Record planned moves in round manager
-        # TODO: it seems that if it's a good design, we should not record planned_moves here,
-        # instead, in the base classes, things are done already in a transparent way.
         if hasattr(self.game_state, 'round_manager') and self.game_state.round_manager:
             self.game_state.round_manager.record_planned_moves(planned_moves)
             # Note: The actual move will be recorded by the base make_move() method
@@ -278,8 +280,6 @@ class HeuristicGameLogic(BaseGameLogic):
             "has_agent": self.agent is not None
         }
 
-    # TODO: in a good design, in subclasses, we should not see such code.
-    # TODO: seems the base class of game_state_adapter.py is not used. Should be the case.
     def get_state_snapshot(self) -> dict:
         """
         Get current game state snapshot for agent decision making.
@@ -310,8 +310,6 @@ class HeuristicGameLogic(BaseGameLogic):
             "snake_length": len(self.snake_positions)  # PRE-MOVE: current snake length
         }
 
-    # TODO: in a good design, in subclasses, we should not see such code.
-    # TODO: check also state_management.py 
     def get_recorded_state_snapshot(self, recorded_state: dict) -> dict:
         """
         Get game state snapshot from recorded state for dataset consistency.

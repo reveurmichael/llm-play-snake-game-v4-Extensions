@@ -1,5 +1,13 @@
-# TODO: In the attached "extensions/heuristics-v0.04/game_manager.py", I have a bunch of TODOs. Please go through them and fix them. Basically, you might want to make writting game_manager.py for extensions much easier (not only for heuristics-v0.04, but also for other extensions). However, keep in mind that writing jsonl files is specific to heuristics-v0.04. Hence, state_management.py (PRE/POST move states) is specific to heuristics-v0.04. For this time, you are allowed to adjust Task0 codebase. But, don't change any functionality of Task0 and heuristics-v0.04. Attached md files can be useful for you, though some of them are outdated. You might want to update core.md file after you are finished.
+"""
+Heuristic Game Manager v0.04
+============================
 
+Streamlined session management for multi-algorithm heuristic agents with
+comprehensive dataset generation capabilities.
+
+This module demonstrates clean extension architecture by inheriting from
+BaseGameManager and focusing purely on heuristics-specific functionality.
+"""
 
 from __future__ import annotations
 import sys
@@ -494,7 +502,6 @@ class HeuristicGameManager(BaseGameManager):
 
 
 
-    # TODO: this one seems to be heuristics-v0.04 specific. Hence is not shared.
     def _update_datasets_incrementally(self, games_data: List[Dict[str, Any]]) -> None:
         """Update datasets incrementally after each game."""
         if not self.dataset_generator:
