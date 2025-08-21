@@ -5,21 +5,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 """
-BFS Agent - Blueprint Template for BFS Token Variants
-----------------
+BFS Agent v0.04
+===============
 
-This module implements a BFS (Breadth-First Search) agent that serves as a
-blueprint template for token-limited variants. It contains only core BFS logic
-and basic explanation structure with minimal JSONL output (~100 tokens).
+Elegant Breadth-First Search agent with optimal pathfinding and explanation
+generation. Serves as blueprint for token-limited variants.
 
-This is a BLUEPRINT TEMPLATE - not used for actual dataset generation.
-Token variants (BFS-512, BFS-1024, etc.) inherit from this class and add
-their own detailed JSONL generation logic.
-
-Design Patterns:
-- Template Method: Base class provides algorithm structure
-- Inheritance: Token variants extend this blueprint
-- Single Responsibility: Core BFS logic only
+Key Features:
+- Optimal pathfinding with BFS algorithm
+- Clean explanation generation for datasets
+- Template method pattern for token variants
+- SSOT compliance with centralized utilities
 """
 
 from collections import deque

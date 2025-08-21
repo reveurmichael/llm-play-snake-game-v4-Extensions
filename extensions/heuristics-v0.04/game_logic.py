@@ -59,45 +59,31 @@ class HeuristicGameLogic(BaseGameLogic):
     planned_moves: List[str]
 
     def __init__(self, grid_size: int = GRID_SIZE, use_gui: bool = True) -> None:
-        """
-        Initialize heuristic game logic with pathfinding capabilities.
-        
-        Args:
-            grid_size: Size of the game grid (default from config)
-            use_gui: Whether to use GUI (default True, can be disabled for headless)
-        """
+        """Initialize heuristic game logic with pathfinding capabilities."""
         super().__init__(grid_size=grid_size, use_gui=use_gui)
 
         # Heuristic-specific attributes
         self.agent: Optional[BFSAgent] = None
-        # Default algorithm name before an agent is set
         self.algorithm_name: str = "BFS-Safe-Greedy"
 
-        # Ensure we have the correct data type and grid_size is set
-        # Note: game_state is initialized in super().__init__(), so we can safely access it here
+        # Ensure correct data type
         if not isinstance(self.game_state, HeuristicGameData):
             self.game_state = HeuristicGameData()
 
-        # SSOT Fix: Sync initial snake positions BEFORE reset() to avoid fail-fast error
-        # The base class initializes snake_positions but doesn't sync them to game_state
-        # We need to sync them before the reset() call that triggers SSOT validation
+        # Initialize game state with proper synchronization
         if isinstance(self.game_state, HeuristicGameData):
             self.game_state.grid_size = grid_size
             self.game_state.snake_positions = self.snake_positions.tolist()
             self.game_state.apple_position = self.apple_position.tolist()
             self.game_state.reset()
-            # Validate initial game state without creating rounds (rounds start with moves)
+            
+            # Validate initial state
             initial_state = self.get_state_snapshot()
             if not initial_state['snake_positions'] or not initial_state['apple_position']:
                 raise RuntimeError("[SSOT] Initial game state is missing or invalid after initialization.")
 
     def set_agent(self, agent: BFSAgent) -> None:
-        """
-        Set the heuristic agent for pathfinding.
-        
-        Args:
-            agent: Heuristic agent instance (BFS, DFS, etc.)
-        """
+        """Set the heuristic agent for pathfinding."""
         self.agent = agent
         
         # Validate agent has algorithm_name - required for heuristics
@@ -112,15 +98,7 @@ class HeuristicGameLogic(BaseGameLogic):
             self.game_state.grid_size = self.grid_size  # Set actual grid size
 
     def plan_next_moves(self) -> List[str]:
-        """
-        Plan next moves using the heuristic agent.
-        
-        This method implements the planning logic for heuristic algorithms,
-        replacing the LLM-specific planning in Task-0.
-        
-        Returns:
-            List of planned moves (typically single move for heuristics)
-        """
+        """Plan next moves using the heuristic agent."""
         if not self.agent:
             raise RuntimeError("No agent set. Please set an agent before planning moves.")
 

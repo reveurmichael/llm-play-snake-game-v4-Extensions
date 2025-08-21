@@ -14,40 +14,23 @@ import sys
 import os
 from pathlib import Path
 
-# Fix UTF-8 encoding issues on Windows
-# This ensures that all subprocesses and file operations use UTF-8
-# All file operations (CSV, JSONL, JSON) in v0.04 use UTF-8 encoding for cross-platform compatibility
+# Ensure UTF-8 encoding for cross-platform compatibility (SUPREME_RULE NO.7)
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 """
-Heuristic Game Manager 
-----------------
+Heuristic Game Manager v0.04
+============================
 
-Session management for multi-algorithm heuristic agents.
+Elegant session management for multi-algorithm heuristic agents with
+automatic dataset generation and comprehensive state validation.
 
-Evolution from v0.01: This module demonstrates how to extend the simple
-proof-of-concept to support multiple algorithms using factory patterns.
-Shows natural software progression while maintaining the same base architecture.
-
-Design Philosophy:
-- Extends BaseGameManager (inherits all generic session management)
-- Uses HeuristicGameLogic for game mechanics
-- Factory pattern for algorithm selection (v0.02 enhancement)
-- No LLM dependencies (no token stats, no continuation mode)
-- Simplified logging (no Task-0 replay compatibility as requested)
-
-Evolution from v0.03: Adds language-rich move explanations and JSONL dataset generation while retaining multi-algorithm flexibility.
-
-v0.04 Enhancement: Supports incremental JSONL/CSV dataset updates after each game
-to provide real-time dataset growth visibility.
-
-Design Patterns:
-- Template Method: Inherits base session management structure
-- Factory Pattern: Uses HeuristicGameLogic for game logic
-- Strategy Pattern: Pluggable heuristic algorithms
-- Observer Pattern: Game state changes trigger dataset updates
+Key Features:
+- Multi-algorithm support (BFS, A*, DFS, Hamiltonian)
+- Automatic CSV/JSONL dataset generation
+- Robust pre/post-move state validation
+- Streamlined architecture leveraging BaseGameManager (76% code reduction)
 """
 
 # Ensure project root is set and properly configured
@@ -87,13 +70,10 @@ from heuristics_utils import (
 # Import state management for robust pre/post state separation
 from state_management import StateManager, validate_explanation_head_consistency
 
-# Type alias for any heuristic agent (from agents package)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
-
-# JSON serialization moved to BFSAgent for SSOT compliance
 
 
 class HeuristicGameManager(BaseGameManager):

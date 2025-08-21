@@ -1,14 +1,15 @@
 """
-Core dataset generator – generate CSV / JSONL from in-memory game data.
+Dataset Generator v0.04
+=======================
 
-This module provides the core DatasetGenerator class that processes
-live heuristic game data during execution and generates structured datasets for machine learning.
+Elegant CSV/JSONL dataset generation from live heuristic game data with
+real-time updates and comprehensive error handling.
 
-Design Philosophy:
-- Algorithm-agnostic: Can be reused by supervised/RL extensions
-- Single responsibility: Only handles dataset generation from live data
-- Standardized logging: Uses print_utils functions for all operations
-- Generic: Uses common utilities for CSV feature extraction
+Key Features:
+- Dual format support (CSV for ML, JSONL for LLM fine-tuning)
+- Real-time incremental updates during game execution
+- Algorithm-agnostic design for reusability
+- UTF-8 encoding with cross-platform compatibility
 """
 
 from __future__ import annotations
@@ -20,16 +21,12 @@ import sys
 import os
 import traceback
 
-# Fix UTF-8 encoding issues on Windows
-# This ensures that all subprocesses and file operations use UTF-8
-# All file operations (CSV, JSONL, JSON) use UTF-8 encoding for cross-platform compatibility
+# Ensure UTF-8 encoding for cross-platform compatibility (SUPREME_RULE NO.7)
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
-# Add project root to path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from utils.print_utils import print_info, print_warning, print_success, print_error
-# No additional imports needed - agents handle all validation and extraction
 
 # Import common CSV utilities for SSOT compliance
 from extensions.common.utils.csv_utils import (
