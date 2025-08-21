@@ -370,7 +370,7 @@ class {class_name}(BaseGameManager):
     
     def _get_next_move(self, game_state: Dict[str, Any]) -> str:
         """Implement your {algorithm_type} algorithm here."""
-        # TODO: Replace with your algorithm implementation
+        # Extension-specific algorithm implementation goes here
         import random
         return random.choice(["UP", "DOWN", "LEFT", "RIGHT"])
     
@@ -444,7 +444,7 @@ class {class_name}(BaseGameManager):
     
     def _get_next_move(self, game_state: Dict[str, Any]) -> str:
         """Implement advanced {algorithm_type} algorithm."""
-        # TODO: Implement your advanced algorithm
+        # Advanced algorithm implementation goes here
         return "UP"
     
     def _process_game_state_before_move(self, game_state: Dict[str, Any]) -> Dict[str, Any]:
