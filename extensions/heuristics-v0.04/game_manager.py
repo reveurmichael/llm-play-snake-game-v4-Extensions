@@ -98,55 +98,43 @@ if TYPE_CHECKING:
 
 class HeuristicGameManager(BaseGameManager):
     """
-    Multi-algorithm session manager for heuristics v0.04.
-
-    Evolution from v0.01:
-    - Factory pattern for algorithm selection (was: hardcoded BFS)
-    - Support for 7 different heuristic algorithms
-    - Improved error handling and verbose mode
-    - Simplified logging without Task-0 replay compatibility
-
-    v0.04 Enhancement:
-    - Automatic JSONL/CSV/summary.json updates after each game
-    - Real-time dataset growth visibility
-    - No optional parameters - updates always happen
-
-    Design Patterns:
-    - Template Method: Inherits base session management structure
-    - Factory Pattern: Uses HeuristicGameLogic for game logic
-    - Strategy Pattern: Pluggable heuristic algorithms (v0.02 enhancement)
-    - Abstract Factory: Algorithm creation based on configuration
-    - Observer Pattern: Game state changes trigger dataset updates
+    Elegant multi-algorithm session manager for heuristic pathfinding.
+    
+    Supports BFS, A*, DFS, Hamiltonian algorithms with automatic dataset
+    generation (CSV/JSONL) and comprehensive state management.
+    
+    Key Features:
+    - Multi-algorithm support via strategy pattern
+    - Automatic dataset updates after each game
+    - Robust pre/post-move state validation
+    - Streamlined architecture leveraging BaseGameManager
     """
 
     # Use heuristic-specific game logic
     GAME_LOGIC_CLS = HeuristicGameLogic
 
     def __init__(self, args: argparse.Namespace, agent: Any) -> None:
-        """Initialize heuristic game manager with automatic dataset update capabilities.
+        """Initialize heuristic game manager.
         
         Args:
-            args: Command line arguments namespace
-            agent: Required agent instance (SSOT enforcement)
+            args: Command line arguments
+            agent: Heuristic agent instance (required)
         """
         super().__init__(args)
 
-        # Heuristic-specific attributes
+        # Heuristic-specific configuration
         self.algorithm_name: str = getattr(args, "algorithm", DEFAULT_ALGORITHM)
-        # Shared agent instance (SSOT). Must be provided.
         self.agent: Any = agent
         self.verbose: bool = getattr(args, "verbose", False)
-
-        # Heuristics-specific session data (base class handles common stats)
+        
+        # Extension-specific tracking
         self.game_rounds: List[int] = []
-
-        # Dataset update tracking (always enabled)
         self.dataset_generator: Optional[DatasetGenerator] = None
 
         print_info(f"[HeuristicGameManager] Initialized for {self.algorithm_name}")
 
     def initialize(self) -> None:
-        """Initialize the game manager with automatic dataset update capabilities."""
+        """Initialize heuristic game manager components."""
         # Setup logging directory
         self._setup_logging()
 
@@ -198,85 +186,50 @@ class HeuristicGameManager(BaseGameManager):
                 pass  # Non-critical if subdirectories can't be created
 
     def _setup_agent(self) -> None:
-        """
-        Factory method to create appropriate agent based on algorithm selection.
-        """
+        """Validate and configure the heuristic agent."""
         try:
-            # Require agent to be provided (SSOT enforcement)
+            # Validate agent is provided
             if self.agent is None:
-                raise RuntimeError(
-                    f"Agent is required for HeuristicGameManager. Algorithm '{self.algorithm_name}' needs an agent instance."
-                )
+                raise RuntimeError(f"Agent required for {self.algorithm_name}")
 
-            # Validate that the provided agent matches requested algorithm
+            # Validate agent algorithm matches requested
             provided_name = getattr(self.agent, "algorithm_name", None)
             if provided_name and provided_name.upper() != self.algorithm_name.upper():
-                raise RuntimeError(
-                    f"Provided agent algorithm '{provided_name}' does not match requested '{self.algorithm_name}'."
-                )
-
-            if not self.agent:
-                available_algorithms = get_available_algorithms()
-                raise ValueError(
-                    f"Unknown algorithm: {self.algorithm_name}. Available: {available_algorithms}"
-                )
+                raise RuntimeError(f"Agent algorithm mismatch: {provided_name} != {self.algorithm_name}")
 
             if self.verbose:
-                print_info(
-                    f"🏭 Using {self.agent.__class__.__name__} for {self.algorithm_name}"
-                )
+                print_info(f"🏭 Using {self.agent.__class__.__name__} for {self.algorithm_name}")
         except Exception:
             raise
 
     def _setup_dataset_generator(self) -> None:
-        """Setup dataset generator for automatic updates."""
-        # Pass current agent instance to allow agent-level control over prompt/completion formatting
+        """Setup dataset generator for CSV/JSONL output."""
         self.dataset_generator = DatasetGenerator(
             self.algorithm_name, Path(self.log_dir), agent=self.agent
         )
-
-        # Open CSV and JSONL files for writing
+        
+        # Initialize output files
         self.dataset_generator._open_csv()
         self.dataset_generator._open_jsonl()
-
-        print_info(
-            "[HeuristicGameManager] Dataset generator initialized for automatic updates"
-        )
+        
+        print_info("[HeuristicGameManager] Dataset generator ready")
 
     def run(self) -> None:
-        """Run the heuristic game session with automatic dataset updates."""
-        # Start session tracking using base class
-        self.start_session()
-        
-        print_success("✅ 🚀 Starting heuristics v0.04 session...")
-        print_info(f"📊 Target games: {self.args.max_games}")
+        """Run heuristic game session with streamlined base class management."""
+        # Use the fully streamlined base class approach
+        self.run_game_session()
+    
+    def _display_session_start(self) -> None:
+        """Display heuristics-specific session start information."""
+        super()._display_session_start()
         print_info(f"🧠 Algorithm: {self.algorithm_name}")
-        print_info("")
+    
+    def _display_session_completion(self) -> None:
+        """Display heuristics-specific session completion."""
+        super()._display_session_completion()
+        print_success("✅ Heuristics v0.04 execution completed!")
 
-        # Run games
-        for game_id in range(1, self.args.max_games + 1):
-            print_info(f"🎮 Game {game_id}")
-            # Run single game
-            game_duration = self._run_single_game()
-            # Finalize game and update datasets
-            self._finalize_game(game_duration)
-            # Display results
-            self.display_game_results(game_duration)
-            # Check if we should continue
-            if game_id < self.args.max_games:
-                print_info("")  # Spacer between games
 
-        # End session and generate comprehensive summary
-        self.end_session()
-
-        print_success("✅ ✅ Heuristics v0.04 session completed!")
-        if hasattr(self, "log_dir") and self.log_dir:
-            print_info(f"📂 Logs: {self.log_dir}")
-
-    def _run_single_game(self) -> float:
-        """Run a single game using the streamlined base class approach."""
-        # Use the base class streamlined approach with heuristics-specific customization
-        return self.run_single_game()
     
     def _initialize_game_specific_rounds(self) -> None:
         """Initialize heuristics-specific rounds data."""
@@ -449,10 +402,7 @@ class HeuristicGameManager(BaseGameManager):
                 f"[SSOT] Misalignment: explanations={n_expl}, metrics={n_metrics}, pre-move states (rounds 1+): {n_states}"
             )
 
-    def _finalize_game(self, game_duration: float) -> None:
-        """Finalize game and update datasets automatically."""
-        # Use base class finalize_game method
-        self.finalize_game(game_duration)
+
     
     def _add_task_specific_game_data(self, game_data: Dict[str, Any], game_duration: float) -> None:
         """Add heuristics-specific game data."""

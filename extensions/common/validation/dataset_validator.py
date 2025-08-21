@@ -99,7 +99,12 @@ def validate_dataset(file_path: Union[str, Path]) -> ValidationResult:
     if suffix == ".csv":
         return _validate_csv(path)
     if suffix == ".jsonl":
-        pass # TODO: no need for jsonl validation
+        # JSONL validation not implemented - accept by default
+        return ValidationResult(
+            is_valid=True,
+            level=ValidationLevel.INFO,
+            message="JSONL files accepted without validation.",
+        )
 
     # Unknown or unsupported file type – accept by default.
     print_info(f"Unknown file type, accepting by default: {suffix}", "DatasetValidator")

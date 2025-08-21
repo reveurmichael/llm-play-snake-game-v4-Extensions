@@ -159,45 +159,23 @@ class SupervisedGameManager(BaseGameManager):
             raise
 
     def run(self) -> None:
-        """Run the supervised learning session."""
-        # Start session tracking using base class
-        self.start_session()
-        
-        print_success("✅ 🚀 Starting supervised learning v0.03 session...")
-        print_info(f"📊 Target games: {self.args.max_games}")
+        """Run supervised learning session with streamlined base class management."""
+        # Use the fully streamlined base class approach
+        self.run_game_session()
+    
+    def _display_session_start(self) -> None:
+        """Display ML-specific session start information."""
+        super()._display_session_start()
         print_info(f"🧠 Model: {self.model_type}")
         if self.model_accuracy > 0:
             print_info(f"🎯 Model accuracy: {self.model_accuracy:.3f}")
-        print_info("")
+    
+    def _display_session_completion(self) -> None:
+        """Display ML-specific session completion."""
+        super()._display_session_completion()
+        print_success("✅ Supervised learning v0.03 execution completed!")
 
-        # Run games using base class template method
-        for game_id in range(1, self.args.max_games + 1):
-            print_info(f"🎮 Game {game_id}")
-            
-            # Run single game
-            game_duration = self._execute_single_game()
-            
-            # Finalize game using base class method
-            self.finalize_game(game_duration)
-            
-            # Display results using base class method
-            self.display_game_results(game_duration)
-            
-            # Check if we should continue
-            if game_id < self.args.max_games:
-                print_info("")  # Spacer between games
 
-        # End session and generate comprehensive summary
-        self.end_session()
-
-        print_success("✅ ✅ Supervised learning v0.03 session completed!")
-        if hasattr(self, "log_dir") and self.log_dir:
-            print_info(f"📂 Logs: {self.log_dir}")
-
-    def _execute_single_game(self) -> float:
-        """Execute a single game using the streamlined base class approach."""
-        # Use the base class streamlined approach with supervised learning customization
-        return self.run_single_game()
     
     def _get_next_move(self, game_state: Dict[str, Any]) -> str:
         """Get next move from supervised learning model."""

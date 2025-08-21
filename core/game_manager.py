@@ -63,17 +63,14 @@ if TYPE_CHECKING:
 
 
 class BaseGameManager:
-    """Generic session manager for all Snake game tasks.
+    """
+    Universal session manager for all Snake Game AI tasks.
     
-    This class contains ONLY attributes and methods that are useful
-    across Tasks 1-5. No LLM-specific code, no legacy patterns.
+    Provides comprehensive infrastructure for game execution, session management,
+    statistics tracking, and file I/O. Extensions inherit and customize through
+    elegant hook methods.
     
-    Perfect for:
-    - Task-1 (Heuristics): BFS, A*, Hamiltonian cycles
-    - Task-2 (Supervised): Neural network training on game data  
-    - Task-3 (Reinforcement): DQN, PPO, actor-critic agents
-    - Task-4 (LLM Fine-tuning): Custom fine-tuned models
-    - Task-5 (Distillation): Model compression techniques
+    Supports: Heuristics, Supervised Learning, RL, LLM Fine-tuning, Distillation
     """
 
     # Factory hook - subclasses specify their game logic type
@@ -83,21 +80,19 @@ class BaseGameManager:
         """Initialize generic session state for any task type."""
         self.args = args
 
-        # -------------------
-        # Core session metrics (used by ALL tasks)
-        # -------------------
+        # Core session metrics
         self.game_count: int = 0
         self.round_count: int = 1
         self.total_score: int = 0
         self.total_steps: int = 0
         self.total_rounds: int = 0
 
-        # Per-game data tracking
+        # Per-game tracking
         self.game_scores: List[int] = []
         self.round_counts: List[int] = []
         self.current_game_moves: List[str] = []
 
-        # Error tracking (generic across all algorithms)
+        # Error tracking
         self.valid_steps: int = 0
         self.invalid_reversals: int = 0
         self.consecutive_invalid_reversals: int = 0
@@ -105,99 +100,60 @@ class BaseGameManager:
         self.no_path_found_steps: int = 0
         self.last_no_path_found: bool = False
 
-        # -------------------
-        # Game limits management (used by ALL tasks)
-        # -------------------
+        # Game limits management
         from core.game_limits_manager import create_limits_manager
         self.limits_manager = create_limits_manager(args)
 
-        # -------------------
-        # Game state management (used by ALL tasks)
-        # -------------------
+        # Game state management
         self.game: Optional[BaseGameLogic] = None
         self.game_active: bool = True
         self.need_new_plan: bool = True
         self.running: bool = True
-        self._first_plan: bool = True  # Track first planning cycle for round management
+        self._first_plan: bool = True
 
-        # -------------------
-        # Game controller integration (used by ALL tasks)
-        # -------------------
+        # Game controller integration
         self.game_controller: Optional["BaseGameController"] = None
         self.controller_initialized: bool = False
 
-        # -------------------
-        # Visualization & timing (used by ALL tasks)
-        # -------------------
+        # Visualization & timing
         self.use_gui: bool = not getattr(args, "no_gui", False)
         self.pause_between_moves: float = getattr(args, "pause_between_moves", 0.0)
         self.auto_advance: bool = getattr(args, "auto_advance", False)
 
-        # Lazy-load pygame ONLY when GUI is requested.
-        # This keeps head-less extensions (heuristics, RL, …) completely
-        # free of the heavyweight SDL dependency and avoids opening any
-        # graphical window when ``use_gui`` is False.
-
+        # Pygame lazy loading for GUI support
         self._pygame = None  # type: ignore[assignment]
 
         if self.use_gui:
             try:
-                # Import inside the branch so that *headless* runs never even
-                # attempt to import pygame.
                 self._pygame = importlib.import_module("pygame")
                 self.clock = self._pygame.time.Clock()  # type: ignore[attr-defined]
                 self.time_delay = TIME_DELAY
                 self.time_tick = TIME_TICK
-            except ModuleNotFoundError as exc:  # pragma: no cover – dev machines without pygame
+            except ModuleNotFoundError as exc:
                 raise RuntimeError(
-                    "GUI mode requested but pygame is not installed. "
-                    "Install it or re-run with --no-gui."
+                    "GUI mode requested but pygame not installed. Use --no-gui or install pygame."
                 ) from exc
         else:
-            # Headless – initialise dummies so the rest of the code can rely on them.
             self.clock = None
             self.time_delay = 0
             self.time_tick = 0
 
-        # -------------------
-        # Logging infrastructure (used by ALL tasks)
-        # -------------------
+        # Logging and session management
         self.log_dir: Optional[str] = None
-
-        # -------------------
-        # Session management (used by ALL tasks)
-        # -------------------
         self.session_start_time: Optional["datetime"] = None
         self.game_steps: List[int] = []
 
-    # -------------------
-    # CORE LIFECYCLE METHODS - All tasks implement these
-    # -------------------
-
+    # Core lifecycle methods
+    
     def initialize(self) -> None:
-        """Initialize the task-specific components.
-        
-        Override in subclasses to set up:
-        - Logging directories
-        - Models/algorithms  
-        - Dataset connections
-        - Agent configurations
-        """
+        """Initialize task-specific components. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement initialize()")
 
     def run(self) -> None:
-        """Execute the main task workflow.
-        
-        Override in subclasses to implement:
-        - Training loops (RL, Supervised)
-        - Evaluation protocols (Heuristics)  
-        - Fine-tuning pipelines (LLM tasks)
-        """
+        """Execute main task workflow. Override in subclasses."""
         raise NotImplementedError("Subclasses must implement run()")
 
-    # -------------------
-    # GENERIC GAME SETUP - Reusable across all tasks
-    # -------------------
+    # Game setup methods
 
     def setup_game(self) -> None:
         """Create game logic and optional GUI interface with automatic controller integration."""
@@ -285,9 +241,7 @@ class BaseGameManager:
         return self.pause_between_moves if self.use_gui else 0.0
 
 
-    # -------------------
-    # ROUND MANAGEMENT - Generic for all planning-based tasks
-    # -------------------
+    # Round management methods
 
     def start_new_round(self, reason: str = "") -> None:
         """Begin a new planning round.
@@ -386,9 +340,7 @@ class BaseGameManager:
             # Lightweight marker; keeps console noise minimal during large runs.
             print(Fore.BLUE + f"📁 Round {self.round_count} finished")
 
-    # -------------------
-    # LOGGING INFRASTRUCTURE - Used by all tasks
-    # -------------------
+    # Logging infrastructure
 
     def setup_logging(self, base_dir: str, task_name: str) -> None:
         """Set up logging directory structure with comprehensive path management.
@@ -726,9 +678,7 @@ class BaseGameManager:
         """
         self.game_steps.append(game_steps)
 
-    # -------------------
-    # GENERIC GAME DATA MANAGEMENT - Used by all extensions
-    # -------------------
+    # Game data management
 
     def generate_game_data(self, game_duration: float) -> Dict[str, Any]:
         """Generate game data for logging and dataset generation.
@@ -917,9 +867,7 @@ class BaseGameManager:
         # Base implementation does nothing - extensions override this
         pass
 
-    # -------------------
-    # COMPREHENSIVE ROUNDS MANAGEMENT - Used by all extensions
-    # -------------------
+    # Comprehensive rounds management
 
     def _initialize_game_rounds(self) -> None:
         """Initialize rounds tracking for the current game.
@@ -1207,21 +1155,15 @@ class BaseGameManager:
             print_info(f"📂 Logs: {self.log_dir}")
 
 
-# -------------------
-# TASK-0 SPECIFIC CLASS - LLM Snake Game
-# -------------------
+    # Task-0 LLM Game Manager
 
 
 class GameManager(BaseGameManager):
-    """LLM-powered Snake game manager (Task-0).
+    """
+    LLM-powered Snake game manager for Task-0.
     
-    Extends BaseGameManager with LLM-specific functionality:
-    - Language model clients
-    - Prompt/response logging  
-    - Token usage tracking
-    - LLM-specific error handling
-    
-    This is the ONLY class that should import LLM modules.
+    Extends BaseGameManager with language model integration, prompt/response
+    logging, token tracking, and LLM-specific error handling.
     """
 
     # Use LLM-capable game logic
@@ -1233,9 +1175,7 @@ class GameManager(BaseGameManager):
         """Initialize LLM-specific session."""
         super().__init__(args)
 
-        # -------------------
         # LLM-specific counters and state
-        # -------------------
         self.empty_steps: int = 0
         self.something_is_wrong_steps: int = 0
         self.consecutive_empty_steps: int = 0
@@ -1243,24 +1183,20 @@ class GameManager(BaseGameManager):
         self.awaiting_plan: bool = False
         self.skip_empty_this_tick: bool = False
 
-        # -------------------
         # LLM performance tracking
-        # -------------------
         self.time_stats: defaultdict[str, int] = defaultdict(int)
         self.token_stats: dict[str, defaultdict[str, int]] = {
             "primary": defaultdict(int),
             "secondary": defaultdict(int),
         }
 
-        # -------------------
         # LLM infrastructure
-        # -------------------
         self.llm_client: Optional[LLMClient] = None
         self.parser_provider: Optional[str] = None
         self.parser_model: Optional[str] = None
         self.agent: Optional[BaseAgent] = agent
 
-        # LLM-specific logging directories
+        # LLM-specific logging
         self.prompts_dir: Optional[str] = None
         self.responses_dir: Optional[str] = None
 
@@ -1348,9 +1284,7 @@ class GameManager(BaseGameManager):
         helper.report_final_statistics(stats_info)
         self.running = False
 
-    # -------------------
-    # CONTINUATION SUPPORT - LLM-specific feature
-    # -------------------
+    # Continuation support
 
     def continue_from_session(self, log_dir: str, start_game_number: int) -> None:
         """Resume LLM session from previous checkpoint."""

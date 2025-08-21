@@ -45,15 +45,10 @@ if TYPE_CHECKING:
 
 class HeuristicGameLogic(BaseGameLogic):
     """
-    Game logic for heuristic algorithms.
+    Elegant game logic for heuristic pathfinding algorithms.
     
-    Extends BaseGameLogic with heuristic-specific functionality while
-    maintaining the same core game mechanics and interface.
-    
-    Design Patterns:
-    - Template Method: Inherits base game logic structure
-    - Strategy Pattern: Pluggable heuristic algorithms
-    - Factory Pattern: Uses HeuristicGameData for data container
+    Extends BaseGameLogic with heuristic agent integration, explanation
+    generation, and robust state management for dataset creation.
     """
 
     # Use heuristic-specific data container
