@@ -77,8 +77,7 @@ class SupervisedGameManager(BaseGameManager):
         self.model = None
         self.verbose: bool = getattr(args, "verbose", False)
         
-        # Session statistics for summary
-        self.session_start_time: datetime = datetime.now()
+        # Supervised learning specific session data
         self.prediction_times: List[float] = []
         self.model_accuracy: float = 0.0
 
@@ -145,6 +144,9 @@ class SupervisedGameManager(BaseGameManager):
 
     def run(self) -> None:
         """Run the supervised learning session."""
+        # Start session tracking using base class
+        self.start_session()
+        
         print_success("✅ 🚀 Starting supervised learning v0.03 session...")
         print_info(f"📊 Target games: {self.args.max_games}")
         print_info(f"🧠 Model: {self.model_type}")
@@ -169,14 +171,10 @@ class SupervisedGameManager(BaseGameManager):
             if game_id < self.args.max_games:
                 print_info("")  # Spacer between games
 
-        # Save session summary
-        self._save_session_summary()
+        # End session and generate comprehensive summary
+        self.end_session()
 
         print_success("✅ ✅ Supervised learning v0.03 session completed!")
-        print_info(f"🎮 Games played: {len(self.game_scores)}")
-        print_info(f"🏆 Total score: {self.total_score}")
-        print_info(f"📈 Average score: {self.total_score / len(self.game_scores) if self.game_scores else 0:.1f}")
-        print_success("✅ Supervised learning v0.03 execution completed successfully!")
         if hasattr(self, "log_dir") and self.log_dir:
             print_info(f"📂 Logs: {self.log_dir}")
 
@@ -240,46 +238,18 @@ class SupervisedGameManager(BaseGameManager):
             avg_prediction_time = sum(self.prediction_times) / len(self.prediction_times)
             print_info(f"🧠 Model: {self.model_type}, Avg prediction time: {avg_prediction_time:.4f}s")
 
-    def _save_session_summary(self) -> None:
-        """Save session summary with supervised learning specific data."""
-        session_duration = (datetime.now() - self.session_start_time).total_seconds()
-
-        summary = {
-            "session_timestamp": self.session_start_time.strftime("%Y%m%d_%H%M%S"),
-            "model_type": self.model_type,
-            "model_accuracy": self.model_accuracy,
-            "total_games": len(self.game_scores),
-            "total_score": self.total_score,
-            "average_score": (
-                self.total_score / len(self.game_scores) if self.game_scores else 0
-            ),
-            "total_steps": self.total_steps,
-            "total_rounds": self.total_rounds,
-            "session_duration_seconds": round(session_duration, 2),
-            "avg_prediction_time": (
-                sum(self.prediction_times) / len(self.prediction_times) 
-                if self.prediction_times else 0.0
-            ),
-            "game_scores": self.game_scores,
-            "round_counts": self.round_counts,
-            "configuration": {
-                "grid_size": getattr(self.args, "grid_size", 10),
-                "max_games": getattr(self.args, "max_games", 1),
-                "verbose": getattr(self.args, "verbose", False),
-                "dataset_path": self.dataset_path,
-            },
-        }
-
-        # Save summary to file
-        summary_file = os.path.join(self.log_dir, "summary.json")
-        with open(summary_file, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2)
-
-        # Display summary
+    def _add_task_specific_summary_data(self, summary: Dict[str, Any]) -> None:
+        """Add supervised learning specific data to session summary."""
+        summary["model_type"] = self.model_type
+        summary["model_accuracy"] = self.model_accuracy
+        summary["avg_prediction_time"] = (
+            sum(self.prediction_times) / len(self.prediction_times) 
+            if self.prediction_times else 0.0
+        )
+        summary["configuration"]["dataset_path"] = self.dataset_path
+    
+    def _display_task_specific_summary(self, summary: Dict[str, Any]) -> None:
+        """Display supervised learning specific summary information."""
         print_info(f"🧠 Model: {self.model_type}")
         print_info(f"🎯 Model accuracy: {self.model_accuracy:.3f}")
-        print_info(f"🎮 Total games: {len(self.game_scores)}")
-        print_info(f"🏆 Total score: {self.total_score}")
-        print_info(f"📈 Scores: {self.game_scores}")
-        print_info(f"📊 Average score: {summary['average_score']:.1f}")
         print_info(f"⚡ Avg prediction time: {summary['avg_prediction_time']:.4f}s")

@@ -129,12 +129,8 @@ class HeuristicGameManager(BaseGameManager):
         self.agent: Any = agent
         self.verbose: bool = getattr(args, "verbose", False)
 
-        # Session statistics for summary
-        self.total_score: int = 0
-        self.game_scores: List[int] = []
-        self.game_steps: List[int] = []
+        # Heuristics-specific session data (base class handles common stats)
         self.game_rounds: List[int] = []
-        self.session_start_time: datetime = datetime.now()
 
         # Dataset update tracking (always enabled)
         self.dataset_generator: Optional[DatasetGenerator] = None
@@ -244,6 +240,9 @@ class HeuristicGameManager(BaseGameManager):
 
     def run(self) -> None:
         """Run the heuristic game session with automatic dataset updates."""
+        # Start session tracking using base class
+        self.start_session()
+        
         print_success("✅ 🚀 Starting heuristics v0.04 session...")
         print_info(f"📊 Target games: {self.args.max_games}")
         print_info(f"🧠 Algorithm: {self.algorithm_name}")
@@ -262,25 +261,10 @@ class HeuristicGameManager(BaseGameManager):
             if game_id < self.args.max_games:
                 print_info("")  # Spacer between games
 
-        # Save session summary
-        self._save_session_summary()
-
-        # Close dataset generator files
-        if self.dataset_generator:
-            if self.dataset_generator._csv_writer:
-                self.dataset_generator._csv_writer[1].close()
-                print_success("CSV dataset saved")
-            if self.dataset_generator._jsonl_fh:
-                self.dataset_generator._jsonl_fh.close()
-                print_success("JSONL dataset saved")
+        # End session and generate comprehensive summary
+        self.end_session()
 
         print_success("✅ ✅ Heuristics v0.04 session completed!")
-        print_info(f"🎮 Games played: {len(self.game_scores)}")
-        print_info(f"🏆 Total score: {self.total_score}")
-        print_info(
-            f"📈 Average score: {self.total_score / len(self.game_scores) if self.game_scores else 0:.1f}"
-        )
-        print_success("✅ Heuristics v0.04 execution completed successfully!")
         if hasattr(self, "log_dir") and self.log_dir:
             print_info(f"📂 Logs: {self.log_dir}")
 
@@ -556,53 +540,27 @@ class HeuristicGameManager(BaseGameManager):
 
 
 
-    def _save_session_summary(self) -> None:
-        """Save session summary using base class with heuristics-specific data."""
-        session_duration = (datetime.now() - self.session_start_time).total_seconds()
-
-        # Create base summary structure
-        summary = {
-            "session_timestamp": self.session_start_time.strftime("%Y%m%d_%H%M%S"),
-            "algorithm": self.algorithm_name,
-            "total_games": len(self.game_scores),
-            "total_score": self.total_score,
-            "average_score": (
-                self.total_score / len(self.game_scores) if self.game_scores else 0
-            ),
-            "total_steps": sum(self.game_steps),
-            "total_rounds": sum(self.game_rounds),
-            "session_duration_seconds": round(session_duration, 2),
-            "score_per_step": (
-                self.total_score / sum(self.game_steps) if self.game_steps else 0
-            ),
-            "score_per_round": (
-                self.total_score / sum(self.game_rounds) if self.game_rounds else 0
-            ),
-            "game_scores": self.game_scores,
-            "game_steps": self.game_steps,
-            "round_counts": self.game_rounds,
-            "configuration": {
-                "grid_size": getattr(self.args, "grid_size", 10),
-                "max_games": getattr(self.args, "max_games", 1),
-                "verbose": getattr(self.args, "verbose", False),
-            },
-        }
-
-        # Save summary to file
-        summary_file = os.path.join(self.log_dir, "summary.json")
-        with open(summary_file, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2)
-
-        # Display summary
+    def _add_task_specific_summary_data(self, summary: Dict[str, Any]) -> None:
+        """Add heuristics-specific data to session summary."""
+        summary["algorithm"] = self.algorithm_name
+        summary["round_counts"] = self.game_rounds
+    
+    def _display_task_specific_summary(self, summary: Dict[str, Any]) -> None:
+        """Display heuristics-specific summary information."""
         print_info(f"🧠 Algorithm: {self.algorithm_name}")
-        print_info(f"🎮 Total games: {len(self.game_scores)}")
-        print_info(f"🔄 Total rounds: {sum(self.game_rounds)}")
-        print_info(f"🏆 Total score: {self.total_score}")
-        print_info(f"📈 Scores: {self.game_scores}")
+        print_info(f"📈 Game scores: {summary['game_scores']}")
         print_info(f"🔢 Round counts: {self.game_rounds}")
-        print_info(f"📊 Average score: {summary['average_score']:.1f}")
-        print_info(f"⚡ Score per step: {summary['score_per_step']:.3f}")
-        print_info(f"🎯 Score per round: {summary['score_per_round']:.3f}")
+    
+    def _finalize_session(self) -> None:
+        """Finalize heuristics session - close dataset files."""
+        # Close dataset generator files
+        if self.dataset_generator:
+            if self.dataset_generator._csv_writer:
+                self.dataset_generator._csv_writer[1].close()
+                print_success("CSV dataset saved")
+            if self.dataset_generator._jsonl_fh:
+                self.dataset_generator._jsonl_fh.close()
+                print_success("JSONL dataset saved")
 
 
 

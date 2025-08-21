@@ -158,6 +158,12 @@ class BaseGameManager:
         # -------------------
         self.log_dir: Optional[str] = None
 
+        # -------------------
+        # Session management (used by ALL tasks)
+        # -------------------
+        self.session_start_time: Optional["datetime"] = None
+        self.game_steps: List[int] = []
+
     # -------------------
     # CORE LIFECYCLE METHODS - All tasks implement these
     # -------------------
@@ -329,10 +335,177 @@ class BaseGameManager:
         os.makedirs(self.log_dir, exist_ok=True)
 
     def save_session_summary(self) -> None:
-        """Save session-level statistics to JSON."""
-        if self.log_dir:
-            stats_manager = GameStatsManager()
-            stats_manager.save_session_stats(self.log_dir)
+        """Save comprehensive session summary with extension customization."""
+        if not self.log_dir:
+            return
+            
+        # Generate comprehensive session summary
+        summary = self.generate_session_summary()
+        
+        # Save to file
+        self.save_session_summary_to_file(summary)
+        
+        # Display to console
+        self.display_session_summary(summary)
+    
+    def generate_session_summary(self) -> Dict[str, Any]:
+        """Generate comprehensive session summary with extension hooks.
+        
+        Returns:
+            Dictionary containing session summary data
+        """
+        from datetime import datetime
+        
+        # Calculate session duration
+        session_duration = 0.0
+        if hasattr(self, 'session_start_time'):
+            session_duration = (datetime.now() - self.session_start_time).total_seconds()
+        
+        # Calculate derived statistics
+        total_steps = sum(getattr(self, 'game_steps', []))
+        total_rounds = sum(getattr(self, 'round_counts', []))
+        
+        # Base session summary structure
+        summary = {
+            "session_timestamp": getattr(self, 'session_start_time', datetime.now()).strftime("%Y%m%d_%H%M%S"),
+            "total_games": len(self.game_scores),
+            "total_score": self.total_score,
+            "average_score": self.total_score / len(self.game_scores) if self.game_scores else 0.0,
+            "total_steps": total_steps,
+            "total_rounds": total_rounds,
+            "session_duration_seconds": round(session_duration, 2),
+            "score_per_step": self.total_score / total_steps if total_steps > 0 else 0.0,
+            "score_per_round": self.total_score / total_rounds if total_rounds > 0 else 0.0,
+            "game_scores": self.game_scores,
+            "game_steps": getattr(self, 'game_steps', []),
+            "round_counts": self.round_counts,
+            "configuration": self._get_base_configuration(),
+        }
+        
+        # Hook for extensions to add task-specific summary data
+        self._add_task_specific_summary_data(summary)
+        
+        return summary
+    
+    def _get_base_configuration(self) -> Dict[str, Any]:
+        """Get base configuration data for session summary.
+        
+        Returns:
+            Dictionary containing base configuration
+        """
+        return {
+            "grid_size": getattr(self.args, "grid_size", 10),
+            "max_games": getattr(self.args, "max_games", 1),
+            "max_steps": getattr(self.args, "max_steps", 1000),
+            "use_gui": not getattr(self.args, "no_gui", False),
+            "verbose": getattr(self.args, "verbose", False),
+        }
+    
+    def _add_task_specific_summary_data(self, summary: Dict[str, Any]) -> None:
+        """Hook for extensions to add task-specific summary data.
+        
+        Override in subclasses to add extension-specific fields to session summary.
+        
+        Args:
+            summary: Session summary dictionary to modify
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def save_session_summary_to_file(self, summary: Dict[str, Any]) -> None:
+        """Save session summary to JSON file.
+        
+        Args:
+            summary: Session summary dictionary to save
+        """
+        import json
+        
+        summary_file = os.path.join(self.log_dir, "summary.json")
+        with open(summary_file, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2, ensure_ascii=False)
+    
+    def display_session_summary(self, summary: Dict[str, Any]) -> None:
+        """Display session summary to console.
+        
+        Args:
+            summary: Session summary dictionary to display
+        """
+        from utils.print_utils import print_info, print_success
+        
+        print_success("📊 Session Summary")
+        print_info("=" * 50)
+        print_info(f"🎮 Total games: {summary['total_games']}")
+        print_info(f"🏆 Total score: {summary['total_score']}")
+        print_info(f"📈 Average score: {summary['average_score']:.1f}")
+        print_info(f"👣 Total steps: {summary['total_steps']}")
+        print_info(f"🔄 Total rounds: {summary['total_rounds']}")
+        print_info(f"⏱️  Session duration: {summary['session_duration_seconds']:.1f}s")
+        print_info(f"⚡ Score per step: {summary['score_per_step']:.3f}")
+        print_info(f"🎯 Score per round: {summary['score_per_round']:.3f}")
+        
+        # Hook for extensions to add task-specific display
+        self._display_task_specific_summary(summary)
+        
+        print_info("=" * 50)
+    
+    def _display_task_specific_summary(self, summary: Dict[str, Any]) -> None:
+        """Hook for extensions to display task-specific summary information.
+        
+        Override in subclasses to add extension-specific summary display.
+        
+        Args:
+            summary: Session summary dictionary
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def start_session(self) -> None:
+        """Initialize session tracking and logging.
+        
+        Call this at the beginning of any extension's run() method.
+        """
+        from datetime import datetime
+        
+        if not self.session_start_time:
+            self.session_start_time = datetime.now()
+        
+        # Hook for extensions to add session initialization
+        self._initialize_session()
+    
+    def _initialize_session(self) -> None:
+        """Hook for extensions to initialize session-specific data.
+        
+        Override in subclasses to add extension-specific session initialization.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+    
+    def end_session(self) -> None:
+        """Finalize session and generate summary.
+        
+        Call this at the end of any extension's run() method.
+        """
+        # Save comprehensive session summary
+        self.save_session_summary()
+        
+        # Hook for extensions to add session cleanup
+        self._finalize_session()
+    
+    def _finalize_session(self) -> None:
+        """Hook for extensions to finalize session-specific data.
+        
+        Override in subclasses to add extension-specific session cleanup.
+        """
+        # Base implementation does nothing - extensions override this
+        pass
+
+    def track_game_completion(self, game_steps: int) -> None:
+        """Track completion of a single game.
+        
+        Args:
+            game_steps: Number of steps taken in the completed game
+        """
+        self.game_steps.append(game_steps)
 
     # -------------------
     # GENERIC GAME DATA MANAGEMENT - Used by all extensions
@@ -514,6 +687,9 @@ class BaseGameManager:
         self.game_scores.append(self.game.game_state.score)
         self.round_counts.append(self.round_count)
         
+        # Track game completion for session management
+        self.track_game_completion(self.game.game_state.steps)
+        
         # Hook for extensions to add custom stats
         self._update_task_specific_stats(game_duration)
     
@@ -557,6 +733,66 @@ class BaseGameManager:
         game execution logic (LLM planning, heuristic pathfinding, RL training, etc.).
         """
         raise NotImplementedError("Subclasses must implement _execute_game_loop()")
+
+    def run_game_session(self) -> None:
+        """Run a complete game session with automatic session management.
+        
+        This method provides a complete template for running game sessions
+        that extensions can use with minimal customization.
+        """
+        # Start session tracking
+        self.start_session()
+        
+        # Display session start information
+        self._display_session_start()
+        
+        # Run games
+        for game_id in range(1, self.args.max_games + 1):
+            from utils.print_utils import print_info
+            print_info(f"🎮 Game {game_id}")
+            
+            # Run single game
+            game_duration = self.run_single_game()
+            
+            # Finalize game
+            self.finalize_game(game_duration)
+            
+            # Display results
+            self.display_game_results(game_duration)
+            
+            # Add spacer between games
+            if game_id < self.args.max_games:
+                print_info("")
+        
+        # End session
+        self.end_session()
+        
+        # Display completion message
+        self._display_session_completion()
+    
+    def _display_session_start(self) -> None:
+        """Display session start information.
+        
+        Extensions can override this to customize session start display.
+        """
+        from utils.print_utils import print_success, print_info
+        
+        extension_name = self.__class__.__name__.replace("GameManager", "")
+        print_success(f"✅ 🚀 Starting {extension_name} session...")
+        print_info(f"📊 Target games: {self.args.max_games}")
+        print_info("")
+    
+    def _display_session_completion(self) -> None:
+        """Display session completion information.
+        
+        Extensions can override this to customize session completion display.
+        """
+        from utils.print_utils import print_success, print_info
+        
+        extension_name = self.__class__.__name__.replace("GameManager", "")
+        print_success(f"✅ ✅ {extension_name} session completed!")
+        if hasattr(self, "log_dir") and self.log_dir:
+            print_info(f"📂 Logs: {self.log_dir}")
 
 
 # -------------------
