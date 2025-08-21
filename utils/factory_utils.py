@@ -2,23 +2,21 @@
 Universal Factory Utilities for Snake Game AI Project
 ====================================================
 
-This module provides canonical factory patterns used throughout the entire project,
-following SUPREME_RULES from final-decision.md. These utilities are used by:
-- Core game components (Task-0)
-- Web applications (all tasks)  
-- All extensions (Tasks 1-5)
+Canonical factory patterns following SUPREME_RULES with elegant design
+and comprehensive functionality for all project components.
 
-Design Philosophy:
-- Universal: One factory pattern used everywhere
-- SSOT: Single Source of Truth for factory implementation
-- Educational: Clear examples of canonical factory patterns
-- Canonical Method: All factories use create() method name
-- Simple Logging: Uses print() statements only
+Key Features:
+- Universal factory pattern used by core and all extensions
+- Canonical create() method name (SUPREME_RULES compliance)
+- Simple dictionary-based registry with clear error messages
+- Educational value with clean implementation examples
+- SSOT for factory implementation across entire project
 
 Reference: docs/extensions-guideline/final-decision.md
 """
 
 from typing import Dict, Type, Any, List, Optional
+from .print_utils import print_info, print_warning, print_error
 
 
 class SimpleFactory:
@@ -34,7 +32,7 @@ class SimpleFactory:
     - Canonical create() method name (SUPREME_RULES compliance)
     - Simple dictionary-based registry
     - Clear error messages with available options
-    - Simple logging using print() statements
+    - SUPREME_RULES compliant logging using print_utils
     - Easy extension and customization
     
     Example:
@@ -47,7 +45,7 @@ class SimpleFactory:
         """Initialize factory with optional name for logging."""
         self.name = name
         self._registry: Dict[str, Type] = {}
-        print(f"[{self.name}] Factory initialized")  # Simple logging - SUPREME_RULES
+        print_info(f"[{self.name}] Factory initialized")
     
     def register(self, name: str, cls: Type) -> None:
         """Register a class with the factory.
@@ -57,7 +55,7 @@ class SimpleFactory:
             cls: Class to register
         """
         self._registry[name.upper()] = cls
-        print(f"[{self.name}] Registered: {name} -> {cls.__name__}")  # Simple logging
+        print_info(f"[{self.name}] Registered: {name} -> {cls.__name__}")
     
     def create(self, name: str, *args, **kwargs) -> Any:
         """
@@ -82,7 +80,7 @@ class SimpleFactory:
             available = list(self._registry.keys())
             raise ValueError(f"Unknown type: {name}. Available: {available}")
         
-        print(f"[{self.name}] Creating: {name}")  # Simple logging
+        print_info(f"[{self.name}] Creating: {name}")
         return cls(*args, **kwargs)
     
     def list_available(self) -> List[str]:
@@ -105,7 +103,7 @@ class SimpleFactory:
         """Unregister a type from the factory."""
         if name.upper() in self._registry:
             del self._registry[name.upper()]
-            print(f"[{self.name}] Unregistered: {name}")  # Simple logging
+            print_info(f"[{self.name}] Unregistered: {name}")
             return True
         return False
 
@@ -150,7 +148,7 @@ class WebAppFactory:
             available = list(cls._registry.keys())
             raise ValueError(f"Unknown app type: {app_type}. Available: {available}")
         
-        print(f"[WebAppFactory] Creating web app: {app_type}")  # Simple logging
+        print_info(f"[WebAppFactory] Creating web app: {app_type}")
         
         # Import classes here to avoid circular imports
         if app_class_name == "HumanWebApp":
@@ -169,7 +167,7 @@ class WebAppFactory:
     def register(cls, app_type: str, app_class_name: str) -> None:
         """Register a new application type."""
         cls._registry[app_type.upper()] = app_class_name
-        print(f"[WebAppFactory] Registered web app type: {app_type} -> {app_class_name}")
+        print_info(f"[WebAppFactory] Registered web app type: {app_type} -> {app_class_name}")
     
     @classmethod
     def get_available_types(cls) -> List[str]:
@@ -194,12 +192,12 @@ class AgentFactory:
     def __init__(self, name: str = "AgentFactory"):
         self.name = name
         self._registry: Dict[str, Type] = {}
-        print(f"[{self.name}] Agent factory initialized")  # Simple logging
+        print_info(f"[{self.name}] Agent factory initialized")
     
     def register(self, agent_type: str, agent_class: Type) -> None:
         """Register an agent class."""
         self._registry[agent_type.upper()] = agent_class
-        print(f"[{self.name}] Registered agent: {agent_type} -> {agent_class.__name__}")
+        print_info(f"[{self.name}] Registered agent: {agent_type} -> {agent_class.__name__}")
     
     def create(self, agent_type: str, **kwargs) -> Any:  # CANONICAL create() method
         """Create agent instance using canonical create() method."""
@@ -208,7 +206,7 @@ class AgentFactory:
             available = list(self._registry.keys())
             raise ValueError(f"Unknown agent type: {agent_type}. Available: {available}")
         
-        print(f"[{self.name}] Creating agent: {agent_type}")
+        print_info(f"[{self.name}] Creating agent: {agent_type}")
         return agent_class(**kwargs)
     
     def list_available(self) -> List[str]:
@@ -229,12 +227,12 @@ class GameAppFactory:
     def __init__(self, name: str = "GameAppFactory"):
         self.name = name
         self._registry: Dict[str, Type] = {}
-        print(f"[{self.name}] Game app factory initialized")  # Simple logging
+        print_info(f"[{self.name}] Game app factory initialized")
     
     def register(self, app_type: str, app_class: Type) -> None:
         """Register a game app class."""
         self._registry[app_type.upper()] = app_class
-        print(f"[{self.name}] Registered game app: {app_type} -> {app_class.__name__}")
+        print_info(f"[{self.name}] Registered game app: {app_type} -> {app_class.__name__}")
     
     def create(self, app_type: str, **kwargs) -> Any:  # CANONICAL create() method
         """Create game app instance using canonical create() method."""
@@ -243,7 +241,7 @@ class GameAppFactory:
             available = list(self._registry.keys())
             raise ValueError(f"Unknown game app type: {app_type}. Available: {available}")
         
-        print(f"[{self.name}] Creating game app: {app_type}")
+        print_info(f"[{self.name}] Creating game app: {app_type}")
         return app_class(**kwargs)
     
     def list_available(self) -> List[str]:
@@ -304,11 +302,11 @@ def validate_factory_registry(factory: SimpleFactory, required_types: List[str])
     missing = [t for t in required_types if t.upper() not in available]
     
     if missing:
-        print(f"[FactoryValidation] Missing required types: {missing}")
-        print(f"[FactoryValidation] Available types: {available}")
+        print_error(f"[FactoryValidation] Missing required types: {missing}")
+        print_info(f"[FactoryValidation] Available types: {available}")
         return False
     
-    print(f"[FactoryValidation] All required types registered: {required_types}")
+    print_info(f"[FactoryValidation] All required types registered: {required_types}")
     return True
 
 
@@ -323,7 +321,7 @@ def example_usage():
     class DemoAgent:
         def __init__(self, name: str):
             self.name = name
-            print(f"Created demo agent: {name}")
+            print_info(f"Created demo agent: {name}")
     
     # Create and use simple factory
     factory = create_simple_factory("DemoFactory")
@@ -331,11 +329,11 @@ def example_usage():
     
     # Create agent instance
     agent = factory.create("agent", name="test_agent")
-    print(f"Agent name: {agent.name}")
+    print_info(f"Agent name: {agent.name}")
     
     # Create web app factory
     web_factory = create_web_app_factory()
-    print(f"Available web app types: {web_factory.get_available_types()}")
+    print_info(f"Available web app types: {web_factory.get_available_types()}")
 
 
 if __name__ == "__main__":
