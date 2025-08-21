@@ -32,13 +32,21 @@ from game_manager import SupervisedGameManager
 def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
     parser = argparse.ArgumentParser(
-        description="Supervised Learning Snake Game AI",
+        description="🧠 Supervised Learning Snake Game AI v0.03",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py --model MLP --dataset data.csv --max_games 5
+  # Train MLP model and play games
+  python main.py --model MLP --dataset path/to/heuristic_dataset.csv --max_games 5
+  
+  # Train LightGBM with custom parameters
   python main.py --model LightGBM --dataset data.csv --grid_size 15 --verbose
+  
+  # Quick test with untrained model
   python main.py --model MLP --max_games 3 --no_gui
+  
+  # Large-scale evaluation
+  python main.py --model LightGBM --dataset large_dataset.csv --max_games 100
         """
     )
 
@@ -100,8 +108,22 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
+    # Enhanced startup banner
     print_success("🧠 Supervised Learning Snake Game AI v0.03")
-    print_info("=" * 50)
+    print_info("=" * 60)
+    print_info("🎯 Advanced ML Models for Snake Game Intelligence")
+    print_info("📊 Training on Heuristic-Generated Datasets")
+    print_info("🚀 Real-time Performance Analysis and Comparison")
+    print_info("=" * 60)
+    print()
+    
+    # Show configuration
+    print_info(f"🧠 Model: {args.model}")
+    print_info(f"📊 Dataset: {args.dataset if args.dataset else 'None (untrained model)'}")
+    print_info(f"🎮 Max Games: {args.max_games}")
+    print_info(f"📏 Grid Size: {args.grid_size}x{args.grid_size}")
+    print_info(f"🖥️  GUI Mode: {'Disabled' if args.no_gui else 'Enabled'}")
+    print()
     
     try:
         # Create and initialize game manager
@@ -111,14 +133,22 @@ def main():
         # Run the session
         manager.run()
         
-        print_success("✅ Session completed successfully!")
+        print()
+        print_success("🎉 Supervised Learning session completed successfully!")
+        print_info("📊 Check the generated logs for detailed performance analysis")
         
     except KeyboardInterrupt:
         print_info("\n⚠️  Session interrupted by user")
+        print_info("💾 Session data saved where possible")
         sys.exit(0)
         
     except Exception as e:
         print_error(f"❌ Session failed: {e}")
+        print_info("💡 Common solutions:")
+        print_info("   - Check dataset path and format")
+        print_info("   - Ensure required ML libraries are installed")
+        print_info("   - Try with --verbose for detailed error information")
+        
         if args.verbose:
             import traceback
             traceback.print_exc()
