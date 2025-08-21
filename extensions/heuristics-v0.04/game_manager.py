@@ -19,20 +19,6 @@ os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-"""
-Heuristic Game Manager v0.04
-============================
-
-Elegant session management for multi-algorithm heuristic agents with
-automatic dataset generation and comprehensive state validation.
-
-Key Features:
-- Multi-algorithm support (BFS, A*, DFS, Hamiltonian)
-- Automatic CSV/JSONL dataset generation
-- Robust pre/post-move state validation
-- Streamlined architecture leveraging BaseGameManager (76% code reduction)
-"""
-
 # Ensure project root is set and properly configured
 from utils.path_utils import ensure_project_root
 
